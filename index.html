@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Audio Library</title>
+  <script src="https://cdn.jsdelivr.net/npm/amplitudejs@5.3.2/dist/amplitude.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #fff;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .song {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: #222;
+      border-radius: 0.5rem;
+    }
+
+    .song button {
+      font-size: 1.2rem;
+      margin-right: 1rem;
+      background: #444;
+      border: none;
+      padding: 0.5rem;
+      border-radius: 0.25rem;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .song button:hover {
+      background: #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>📻 WAV Player</h1>
+  <div id="songs">Loading...</div>
+
+  <script>
+    const JSON_URL = "https://script.google.com/macros/s/AKfycbzM5U1XLgHyO7UF-SfrPoJIORlA5ovyXwn8RHzzNfCbrg47MahwmxUnIkOLiFtlTg_D/exec";
+
+    fetch(JSON_URL)
+      .then(res => res.json())
+      .then(songs => {
+        if (!songs.length) {
+          document.getElementById("songs").innerHTML = "No WAV files found.";
+          return;
+        }
+
+        const container = document.getElementById("songs");
+        container.innerHTML = '';
+
+        songs.forEach((song, index) => {
+          const div = document.createElement("div");
+          div.className = "song";
+          div.innerHTML = `
+            <button class="amplitude-play-pause" data-amplitude-song-index="${index}">▶️</button>
+            <strong>${song.name}</strong><br>
+            <em>${song.artist}</em>
+          `;
+          container.appendChild(div);
+        });
+
+        Amplitude.init({ songs });
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById("songs").innerText = "Failed to load audio list.";
+      });
+  </script>
+</body>
+</html>
