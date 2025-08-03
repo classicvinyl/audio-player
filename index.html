@@ -1,84 +1,235 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>UOUS Player</title>
-  <script src="https://unpkg.com/wavesurfer.js"></script>
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #111;
-      color: #fff;
-      margin: 0;
-      padding: 2rem;
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SoundCloud-style Audio Player</title>
+<style>
+  /* Reset */
+  body, html {
+    margin: 0; padding: 0;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #f8f8f8;
+    color: #333;
+  }
+  .container {
+    max-width: 720px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+  h1 {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #ff5500;
+    font-weight: 700;
+  }
+  .track {
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.2rem;
+    display: flex;
+    flex-direction: column;
+  }
+  .track-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.8rem;
+  }
+  .play-btn {
+    background: #ff5500;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    box-shadow: 0 2px 8px rgba(255,85,0,0.5);
+    transition: background 0.3s ease;
+  }
+  .play-btn:hover {
+    background: #e04a00;
+  }
+  .track-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+    flex-grow: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .time {
+    font-size: 0.9rem;
+    color: #666;
+    margin-left: 1rem;
+    width: 60px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .waveform {
+    width: 100%;
+    height: 64px;
+  }
 
-    .track {
-      background: #222;
-      border-radius: 12px;
-      padding: 1rem;
-      margin-bottom: 2rem;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  /* Responsive */
+  @media (max-width: 480px) {
+    .track-header {
+      flex-wrap: wrap;
     }
-
-    .title {
-      font-size: 1.2rem;
-      margin-bottom: 1rem;
+    .play-btn {
+      margin-bottom: 0.6rem;
     }
-
-    .controls {
-      margin-top: 1rem;
+    .time {
+      margin-left: 0;
+      width: auto;
+      margin-top: 0.4rem;
     }
-
-    button {
-      padding: 0.5rem 1rem;
-      background: #ff5500;
-      border: none;
-      border-radius: 6px;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #ff3300;
-    }
-
-    @media (max-width: 600px) {
-      body {
-        padding: 1rem;
-      }
-    }
-  </style>
+  }
+</style>
 </head>
 <body>
-  <h1>UOUS Tracks</h1>
 
-  <div class="track">
-    <div class="title">UOUS_190725_1646_v7.mp3</div>
-    <div id="waveform"></div>
-    <div class="controls">
-      <button id="playPause">▶️ Play</button>
-    </div>
-  </div>
+<div class="container">
+  <h1>My Audio Tracks</h1>
+  <div id="tracks"></div>
+</div>
 
-  <script>
-    const wavesurfer = WaveSurfer.create({
-      container: '#waveform',
-      waveColor: '#888',
+<script src="https://unpkg.com/wavesurfer.js"></script>
+<script>
+  const container = document.getElementById('tracks');
+
+  // Fetch MP3 files from your GitHub repo root folder
+  async function fetchMp3List() {
+    const apiUrl = 'https://api.github.com/repos/classicvinyl/audio-player/contents/';
+    const res = await fetch(apiUrl);
+    const files = await res.json();
+
+    if (!Array.isArray(files)) {
+      throw new Error('GitHub API did not return an array');
+    }
+
+    const mp3Files = files.filter(file => file.name.toLowerCase().endsWith('.mp3'));
+
+    const tracks = mp3Files.map(file => ({
+      title: file.name,
+      url: file.download_url
+    }));
+
+    return tracks;
+  }
+
+  // Keep track of all WaveSurfer instances to pause others when one plays
+  const waveSurfers = [];
+
+  // Create each track card and waveform player
+  function createTrack(track, index) {
+    // Track card container
+    const card = document.createElement('div');
+    card.className = 'track';
+
+    // Header: play button, title, time
+    const header = document.createElement('div');
+    header.className = 'track-header';
+
+    const btn = document.createElement('button');
+    btn.className = 'play-btn';
+    btn.innerHTML = '▶'; // Play icon
+
+    const title = document.createElement('div');
+    title.className = 'track-title';
+    title.textContent = track.title || `Track ${index + 1}`;
+
+    const time = document.createElement('div');
+    time.className = 'time';
+    time.textContent = '0:00';
+
+    header.appendChild(btn);
+    header.appendChild(title);
+    header.appendChild(time);
+    card.appendChild(header);
+
+    // Waveform container
+    const wave = document.createElement('div');
+    wave.className = 'waveform';
+    card.appendChild(wave);
+
+    container.appendChild(card);
+
+    // Initialize WaveSurfer for this track
+    const ws = WaveSurfer.create({
+      container: wave,
+      waveColor: '#ffd8b5',
       progressColor: '#ff5500',
-      height: 100,
-      responsive: true
+      height: 64,
+      barWidth: 2,
+      barGap: 2,
+      cursorWidth: 1,
+      cursorColor: '#ff5500',
+      responsive: true,
+      hideScrollbar: true,
     });
 
-    wavesurfer.load("https://sprightly-donut-80b301.netlify.app/UOUS_190725_1646_v7.mp3");
+    ws.load(track.url);
 
-    const button = document.getElementById("playPause");
-    button.addEventListener("click", () => {
-      wavesurfer.playPause();
-      button.textContent = wavesurfer.isPlaying() ? "⏸ Pause" : "▶️ Play";
+    // Update elapsed time display during playback
+    ws.on('audioprocess', () => {
+      const current = ws.getCurrentTime();
+      time.textContent = formatTime(current);
     });
-  </script>
+
+    // When ready, reset time display and add tooltip for duration
+    ws.on('ready', () => {
+      time.textContent = formatTime(0);
+      title.title = `${track.title} — Duration: ${formatTime(ws.getDuration())}`;
+    });
+
+    // Play/pause toggle and pause others
+    btn.addEventListener('click', () => {
+      if (ws.isPlaying()) {
+        ws.pause();
+        btn.innerHTML = '▶';
+      } else {
+        // Pause all others
+        waveSurfers.forEach((otherWs, idx) => {
+          if (idx !== index) otherWs.pause();
+          const otherBtn = container.children[idx].querySelector('.play-btn');
+          if (otherBtn) otherBtn.innerHTML = '▶';
+        });
+        ws.play();
+        btn.innerHTML = '⏸';
+      }
+    });
+
+    waveSurfers.push(ws);
+  }
+
+  // Format seconds as M:SS
+  function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return m + ':' + (s < 10 ? '0' + s : s);
+  }
+
+  // Load and display all tracks from GitHub
+  fetchMp3List()
+    .then(tracks => {
+      if (tracks.length === 0) {
+        container.innerHTML = '<p>No MP3 files found in the repository.</p>';
+      } else {
+        tracks.forEach((track, i) => createTrack(track, i));
+      }
+    })
+    .catch(e => {
+      container.innerHTML = '<p style="color:#c00;">Failed to load tracks from GitHub API.</p>';
+      console.error(e);
+    });
+</script>
+
 </body>
 </html>
