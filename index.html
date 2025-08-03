@@ -39,7 +39,7 @@
         width: 20px;
         height: 20px;
         clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
-        background-color: #000;
+        background-color: #ff5500;
         border-radius: 50%;
       }
       /* Pause icon: two black bars on grey background */
@@ -50,7 +50,7 @@
         justify-content: space-between;
       }
       .pause-icon > div {
-        background-color: #000;
+        background-color: #ff5500;
         width: 6px;
         height: 20px;
         border-radius: 2px;
@@ -89,7 +89,7 @@
       // Adjust font size of element until it fits its container width (min 0.6rem)
       function fitTextToContainer(el, containerWidth) {
         let fontSize = parseFloat(window.getComputedStyle(el).fontSize);
-        const minFontSize = 14; // pixels (~0.6rem)
+        const minFontSize = 12; // pixels (~0.6rem)
         while (el.scrollWidth > containerWidth && fontSize > minFontSize) {
           fontSize -= 1;
           el.style.fontSize = fontSize + "px";
