@@ -1,18 +1,83 @@
-<script>
-  const tracks = [
-    {
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WaveSurfer.js WAV Player Demo</title>
+  <script src="https://unpkg.com/wavesurfer.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #eee;
+      margin: 1rem;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .track {
+      background: #222;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border-radius: 8px;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .track-info {
+      margin-bottom: 0.5rem;
+      font-size: 1.2rem;
+    }
+    .waveform {
+      width: 100%;
+      height: 80px;
+      margin-bottom: 0.5rem;
+      border-radius: 4px;
+      background: #333;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+    }
+    .btn {
+      background: #444;
+      border: none;
+      color: #eee;
+      padding: 0.5rem 1.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      user-select: none;
+    }
+    .btn:hover {
+      background: #666;
+    }
+    @media (max-width: 600px) {
+      .waveform {
+        height: 60px;
+      }
+      .btn {
+        padding: 0.4rem 1rem;
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>WaveSurfer.js WAV Player Demo</h1>
+  <div id="tracks">Loading track...</div>
+
+  <script>
+    const tracksContainer = document.getElementById("tracks");
+    tracksContainer.innerHTML = "";
+
+    const track = {
       name: "Star Wars Theme",
       artist: "John Williams",
       url: "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars3.wav"
-    }
-  ];
+    };
 
-  const tracksContainer = document.getElementById("tracks");
-  tracksContainer.innerHTML = "";
-
-  const wavesurfers = [];
-
-  tracks.forEach((track, index) => {
     // Create track container
     const trackEl = document.createElement("div");
     trackEl.classList.add("track");
@@ -25,7 +90,7 @@
     // Waveform container
     const waveformEl = document.createElement("div");
     waveformEl.classList.add("waveform");
-    waveformEl.id = `waveform-${index}`;
+    waveformEl.id = `waveform-0`;
 
     // Controls
     const controlsEl = document.createElement("div");
@@ -44,7 +109,7 @@
 
     // Create WaveSurfer instance
     const wavesurfer = WaveSurfer.create({
-      container: `#waveform-${index}`,
+      container: `#waveform-0`,
       waveColor: "#888",
       progressColor: "#1DB954",
       cursorColor: "#fff",
@@ -62,14 +127,6 @@
         wavesurfer.pause();
         playBtn.textContent = "Play";
       } else {
-        // Pause all other players
-        wavesurfers.forEach((ws, i) => {
-          if (i !== index) {
-            ws.pause();
-            const btn = document.querySelector(`#waveform-${i}`).parentNode.querySelector(".btn");
-            if (btn) btn.textContent = "Play";
-          }
-        });
         wavesurfer.play();
         playBtn.textContent = "Pause";
       }
@@ -78,7 +135,6 @@
     wavesurfer.on("finish", () => {
       playBtn.textContent = "Play";
     });
-
-    wavesurfers.push(wavesurfer);
-  });
-</script>
+  </script>
+</body>
+</html>
