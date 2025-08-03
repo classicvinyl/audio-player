@@ -1,79 +1,156 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>My Audio Library</title>
-  <script src="https://cdn.jsdelivr.net/npm/amplitudejs@5.3.2/dist/amplitude.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UOUS</title>
+  <script src="https://unpkg.com/wavesurfer.js"></script>
   <style>
     body {
-      font-family: sans-serif;
-      background: #111;
-      color: #fff;
-      padding: 2rem;
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #eee;
+      margin: 1rem;
     }
-
     h1 {
-      font-size: 2rem;
-      margin-bottom: 1rem;
+      text-align: center;
+      margin-bottom: 2rem;
     }
-
-    .song {
+    .track {
+      background: #222;
       margin-bottom: 1.5rem;
       padding: 1rem;
-      background: #222;
-      border-radius: 0.5rem;
+      border-radius: 8px;
     }
-
-    .song button {
-      font-size: 1.2rem;
-      margin-right: 1rem;
+    .track-info {
+      margin-bottom: 0.5rem;
+    }
+    .waveform {
+      width: 100%;
+      height: 80px;
+      margin-bottom: 0.5rem;
+      border-radius: 4px;
+      background: #333;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .btn {
       background: #444;
       border: none;
-      padding: 0.5rem;
-      border-radius: 0.25rem;
-      color: #fff;
+      color: #eee;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
       cursor: pointer;
+      font-size: 1rem;
     }
-
-    .song button:hover {
+    .btn:hover {
       background: #666;
+    }
+    @media (max-width: 600px) {
+      .waveform {
+        height: 60px;
+      }
+      .btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>📻 WAV Player</h1>
-  <div id="songs">Loading...</div>
+  <h1>WAV Player with Waveform</h1>
+  <div id="tracks">Loading tracks...</div>
 
   <script>
     const JSON_URL = "https://script.google.com/macros/s/AKfycbzM5U1XLgHyO7UF-SfrPoJIORlA5ovyXwn8RHzzNfCbrg47MahwmxUnIkOLiFtlTg_D/exec";
+    const tracksContainer = document.getElementById("tracks");
+    const wavesurfers = [];
 
     fetch(JSON_URL)
-      .then(res => res.json())
-      .then(songs => {
-        if (!songs.length) {
-          document.getElementById("songs").innerHTML = "No WAV files found.";
+      .then((res) => res.json())
+      .then((tracks) => {
+        if (!tracks.length) {
+          tracksContainer.innerHTML = "No WAV files found.";
           return;
         }
 
-        const container = document.getElementById("songs");
-        container.innerHTML = '';
+        tracksContainer.innerHTML = "";
 
-        songs.forEach((song, index) => {
-          const div = document.createElement("div");
-          div.className = "song";
-          div.innerHTML = `
-            <button class="amplitude-play-pause" data-amplitude-song-index="${index}">▶️</button>
-            <strong>${song.name}</strong><br>
-            <em>${song.artist}</em>
-          `;
-          container.appendChild(div);
+        tracks.forEach((track, index) => {
+          // Create track container
+          const trackEl = document.createElement("div");
+          trackEl.classList.add("track");
+
+          // Track info
+          const infoEl = document.createElement("div");
+          infoEl.classList.add("track-info");
+          infoEl.innerHTML = `<strong>${track.name}</strong> — <em>${track.artist}</em>`;
+
+          // Waveform container
+          const waveformEl = document.createElement("div");
+          waveformEl.classList.add("waveform");
+          waveformEl.id = `waveform-${index}`;
+
+          // Controls
+          const controlsEl = document.createElement("div");
+          controlsEl.classList.add("controls");
+
+          const playBtn = document.createElement("button");
+          playBtn.classList.add("btn");
+          playBtn.textContent = "Play";
+
+          controlsEl.appendChild(playBtn);
+
+          trackEl.appendChild(infoEl);
+          trackEl.appendChild(waveformEl);
+          trackEl.appendChild(controlsEl);
+          tracksContainer.appendChild(trackEl);
+
+          // Create WaveSurfer instance
+          const wavesurfer = WaveSurfer.create({
+            container: `#waveform-${index}`,
+            waveColor: "#888",
+            progressColor: "#1DB954",
+            cursorColor: "#fff",
+            barWidth: 2,
+            barRadius: 3,
+            height: 80,
+            responsive: true,
+          });
+
+          wavesurfer.load(track.url);
+
+          // Play/pause toggle
+          playBtn.addEventListener("click", () => {
+            if (wavesurfer.isPlaying()) {
+              wavesurfer.pause();
+              playBtn.textContent = "Play";
+            } else {
+              // Pause all other players
+              wavesurfers.forEach((ws, i) => {
+                if (i !== index) {
+                  ws.pause();
+                  const btn = document.querySelector(`#waveform-${i}`).parentNode.querySelector(".btn");
+                  if (btn) btn.textContent = "Play";
+                }
+              });
+              wavesurfer.play();
+              playBtn.textContent = "Pause";
+            }
+          });
+
+          wavesurfer.on("finish", () => {
+            playBtn.textContent = "Play";
+          });
+
+          wavesurfers.push(wavesurfer);
         });
-
-        Amplitude.init({ songs });
       })
-      .catch(err => {
-        console.error(err);
-        document.getElementById("songs").innerText = "Failed to load audio list.";
+      .catch(() => {
+        tracksContainer.innerHTML = "Failed to load tracks.";
       });
   </script>
 </body>
