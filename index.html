@@ -2,138 +2,82 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WaveSurfer.js WAV Player Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>UOUS Player</title>
   <script src="https://unpkg.com/wavesurfer.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #121212;
-      color: #eee;
-      margin: 1rem;
+      font-family: sans-serif;
+      background: #111;
+      color: #fff;
+      margin: 0;
+      padding: 2rem;
     }
-    h1 {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
+
     .track {
       background: #222;
-      margin-bottom: 1.5rem;
+      border-radius: 12px;
       padding: 1rem;
-      border-radius: 8px;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
-    .track-info {
-      margin-bottom: 0.5rem;
+
+    .title {
       font-size: 1.2rem;
+      margin-bottom: 1rem;
     }
-    .waveform {
-      width: 100%;
-      height: 80px;
-      margin-bottom: 0.5rem;
-      border-radius: 4px;
-      background: #333;
-    }
+
     .controls {
-      display: flex;
-      justify-content: center;
+      margin-top: 1rem;
     }
-    .btn {
-      background: #444;
+
+    button {
+      padding: 0.5rem 1rem;
+      background: #ff5500;
       border: none;
-      color: #eee;
-      padding: 0.5rem 1.5rem;
-      border-radius: 4px;
+      border-radius: 6px;
+      color: white;
+      font-weight: bold;
       cursor: pointer;
-      font-size: 1.1rem;
-      user-select: none;
     }
-    .btn:hover {
-      background: #666;
+
+    button:hover {
+      background: #ff3300;
     }
+
     @media (max-width: 600px) {
-      .waveform {
-        height: 60px;
-      }
-      .btn {
-        padding: 0.4rem 1rem;
-        font-size: 1rem;
+      body {
+        padding: 1rem;
       }
     }
   </style>
 </head>
 <body>
-  <h1>WaveSurfer.js WAV Player Demo</h1>
-  <div id="tracks">Loading track...</div>
+  <h1>UOUS Tracks</h1>
+
+  <div class="track">
+    <div class="title">UOUS_190725_1646_v7.wav</div>
+    <div id="waveform"></div>
+    <div class="controls">
+      <button id="playPause">▶️ Play</button>
+    </div>
+  </div>
 
   <script>
-    const tracksContainer = document.getElementById("tracks");
-    tracksContainer.innerHTML = "";
-
-    const track = {
-      name: "Star Wars Theme",
-      artist: "John Williams",
-      url: "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars3.wav"
-    };
-
-    // Create track container
-    const trackEl = document.createElement("div");
-    trackEl.classList.add("track");
-
-    // Track info
-    const infoEl = document.createElement("div");
-    infoEl.classList.add("track-info");
-    infoEl.innerHTML = `<strong>${track.name}</strong> — <em>${track.artist}</em>`;
-
-    // Waveform container
-    const waveformEl = document.createElement("div");
-    waveformEl.classList.add("waveform");
-    waveformEl.id = `waveform-0`;
-
-    // Controls
-    const controlsEl = document.createElement("div");
-    controlsEl.classList.add("controls");
-
-    const playBtn = document.createElement("button");
-    playBtn.classList.add("btn");
-    playBtn.textContent = "Play";
-
-    controlsEl.appendChild(playBtn);
-
-    trackEl.appendChild(infoEl);
-    trackEl.appendChild(waveformEl);
-    trackEl.appendChild(controlsEl);
-    tracksContainer.appendChild(trackEl);
-
-    // Create WaveSurfer instance
     const wavesurfer = WaveSurfer.create({
-      container: `#waveform-0`,
-      waveColor: "#888",
-      progressColor: "#1DB954",
-      cursorColor: "#fff",
-      barWidth: 2,
-      barRadius: 3,
-      height: 80,
-      responsive: true,
+      container: '#waveform',
+      waveColor: '#888',
+      progressColor: '#ff5500',
+      height: 100,
+      responsive: true
     });
 
-    wavesurfer.load(track.url);
+    wavesurfer.load("https://sprightly-donut-80b301.netlify.app/UOUS_190725_1646_v7.wav");
 
-    // Play/pause toggle
-    playBtn.addEventListener("click", () => {
-      if (wavesurfer.isPlaying()) {
-        wavesurfer.pause();
-        playBtn.textContent = "Play";
-      } else {
-        wavesurfer.play();
-        playBtn.textContent = "Pause";
-      }
-    });
-
-    wavesurfer.on("finish", () => {
-      playBtn.textContent = "Play";
+    const button = document.getElementById("playPause");
+    button.addEventListener("click", () => {
+      wavesurfer.playPause();
+      button.textContent = wavesurfer.isPlaying() ? "⏸ Pause" : "▶️ Play";
     });
   </script>
 </body>
