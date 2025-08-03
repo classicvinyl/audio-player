@@ -89,7 +89,7 @@
       // Adjust font size of element until it fits its container width (min 0.6rem)
       function fitTextToContainer(el, containerWidth) {
         let fontSize = parseFloat(window.getComputedStyle(el).fontSize);
-        const minFontSize = 10; // pixels (~0.6rem)
+        const minFontSize = 14; // pixels (~0.6rem)
         while (el.scrollWidth > containerWidth && fontSize > minFontSize) {
           fontSize -= 1;
           el.style.fontSize = fontSize + "px";
