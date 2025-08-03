@@ -52,10 +52,18 @@
         height: 16px;
         border-radius: 1px;
       }
+      /* (2) Make track title wrap inside container */
+      .track-card > div:first-child > div {
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        max-width: calc(100% - 56px); /* leave space for play button */
+      }
     </style>
   </head>
   <body class="min-h-screen p-6">
-    <h1 class="text-3xl font-bold mb-6">UOUS Tracks</h1>
+    <!-- (1) Removed the <h1> header -->
+
     <div id="track-list" class="space-y-6"></div>
 
     <script>
@@ -67,6 +75,7 @@
         const tracks = await res.json();
 
         const list = document.getElementById("track-list");
+        let currentlyPlaying = null; // (3) Track which wavesurfer instance is playing
 
         tracks.forEach((track, i) => {
           const id = `waveform-${i}`;
@@ -77,7 +86,7 @@
 
           container.innerHTML = `
             <div class="flex items-center justify-between">
-              <!-- UPDATED: display title WITHOUT .mp3 extension -->
+              <!-- display title WITHOUT .mp3 extension -->
               <div class="text-xl font-semibold">${track.title.replace(/\.mp3$/i, '')}</div>
               <button class="play-btn" data-id="${id}" aria-label="Play/pause">
                 <div class="play-icon"></div>
@@ -106,13 +115,28 @@
             if (wavesurfer.isPlaying()) {
               wavesurfer.pause();
               btn.innerHTML = `<div class="play-icon"></div>`;
+              currentlyPlaying = null;
             } else {
+              // (3) Pause other playing track if any
+              if (currentlyPlaying && currentlyPlaying !== wavesurfer) {
+                currentlyPlaying.pause();
+                // Reset its button icon
+                const prevBtn = document.querySelector(`button[data-id="${currentlyPlaying.container.id}"]`);
+                if (prevBtn) prevBtn.innerHTML = `<div class="play-icon"></div>`;
+              }
               wavesurfer.play();
               btn.innerHTML = `
                 <div class="pause-icon">
                   <div></div><div></div>
                 </div>`;
+              currentlyPlaying = wavesurfer;
             }
+          });
+
+          // Also reset button icon when track ends naturally
+          wavesurfer.on('finish', () => {
+            btn.innerHTML = `<div class="play-icon"></div>`;
+            currentlyPlaying = null;
           });
         });
       }
