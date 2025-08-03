@@ -12,82 +12,94 @@
         font-family: 'Helvetica Neue', sans-serif;
         color: #fff;
       }
+      .track-card {
+        padding: 1rem;
+        border: 1px solid #444;
+        border-radius: 0.75rem;
+        box-shadow: 0 2px 6px rgba(255 85 0 / 0.3);
+        user-select: none;
+      }
       .track-card:hover {
         background-color: #1e1e1e;
       }
-      /* UPDATED play button styles - SoundCloud style round orange button */
       .play-btn {
+        background: transparent;
+        border: none;
+        cursor: pointer;
         width: 40px;
         height: 40px;
-        border-radius: 50%;
-        background-color: #ff5500;
-        border: none;
         display: flex;
         align-items: center;
         justify-content: center;
-        cursor: pointer;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        transition: background-color 0.3s ease;
+        padding: 0;
       }
-      .play-btn:hover {
-        background-color: #ff7700;
-      }
+      /* SoundCloud style round play icon */
       .play-icon {
-        width: 0; 
-        height: 0; 
-        border-style: solid;
-        border-width: 10px 0 10px 16px;
-        border-color: transparent transparent transparent white;
-        margin-left: 3px;
+        width: 20px;
+        height: 20px;
+        clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
+        background-color: #ff5500;
+        border-radius: 50%;
       }
+      /* SoundCloud style pause icon */
       .pause-icon {
+        width: 20px;
+        height: 20px;
         display: flex;
         justify-content: space-between;
-        width: 14px;
-        height: 16px;
       }
-      .pause-icon div {
-        background: white;
-        width: 4px;
-        height: 16px;
-        border-radius: 1px;
+      .pause-icon > div {
+        background-color: #ff5500;
+        width: 6px;
+        height: 20px;
+        border-radius: 2px;
       }
-      /* (2) Make track title wrap inside container */
-      .track-card > div:first-child > div {
-        white-space: normal;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        max-width: calc(100% - 56px); /* leave space for play button */
+      .track-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        flex: 1;
+        margin-right: 1rem;
+        word-break: break-word; /* wrap long titles */
+      }
+      .track-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      @media (max-width: 640px) {
+        .track-title {
+          font-size: 1rem;
+          margin-right: 0.75rem;
+          max-width: 70vw;
+        }
       }
     </style>
   </head>
   <body class="min-h-screen p-6">
-    <!-- (1) Removed the <h1> header -->
-
     <div id="track-list" class="space-y-6"></div>
 
     <script>
       const repoURL = "https://classicvinyl.github.io/audio-player";
-      const jsonURL = `${repoURL}/files.json`; // auto-generated or manually maintained
+      const jsonURL = `${repoURL}/files.json`;
 
       async function loadTracks() {
         const res = await fetch(jsonURL);
         const tracks = await res.json();
 
         const list = document.getElementById("track-list");
-        let currentlyPlaying = null; // (3) Track which wavesurfer instance is playing
+        list.innerHTML = ''; // Clear existing tracks on reload
+
+        const wavesurfers = [];
 
         tracks.forEach((track, i) => {
           const id = `waveform-${i}`;
 
           const container = document.createElement("div");
-          container.className =
-            "track-card p-4 rounded-lg border border-gray-700 shadow-md";
+          container.className = "track-card";
 
           container.innerHTML = `
-            <div class="flex items-center justify-between">
-              <!-- display title WITHOUT .mp3 extension -->
-              <div class="text-xl font-semibold">${track.title.replace(/\.mp3$/i, '')}</div>
+            <div class="track-header">
+              <div class="track-title">${track.title.replace(/\.mp3$/i, '')}</div>
               <button class="play-btn" data-id="${id}" aria-label="Play/pause">
                 <div class="play-icon"></div>
               </button>
@@ -111,32 +123,30 @@
 
           const btn = container.querySelector(".play-btn");
 
-          btn.addEventListener("click", (e) => {
+          wavesurfers.push({ ws: wavesurfer, btn: btn });
+
+          btn.addEventListener("click", () => {
             if (wavesurfer.isPlaying()) {
               wavesurfer.pause();
               btn.innerHTML = `<div class="play-icon"></div>`;
-              currentlyPlaying = null;
             } else {
-              // (3) Pause other playing track if any
-              if (currentlyPlaying && currentlyPlaying !== wavesurfer) {
-                currentlyPlaying.pause();
-                // Reset its button icon
-                const prevBtn = document.querySelector(`button[data-id="${currentlyPlaying.container.id}"]`);
-                if (prevBtn) prevBtn.innerHTML = `<div class="play-icon"></div>`;
-              }
+              // Pause all other wavesurfers and reset their buttons
+              wavesurfers.forEach(({ ws, btn: otherBtn }) => {
+                if (ws !== wavesurfer) {
+                  ws.pause();
+                  otherBtn.innerHTML = `<div class="play-icon"></div>`;
+                }
+              });
               wavesurfer.play();
               btn.innerHTML = `
                 <div class="pause-icon">
                   <div></div><div></div>
                 </div>`;
-              currentlyPlaying = wavesurfer;
             }
           });
 
-          // Also reset button icon when track ends naturally
           wavesurfer.on('finish', () => {
             btn.innerHTML = `<div class="play-icon"></div>`;
-            currentlyPlaying = null;
           });
         });
       }
