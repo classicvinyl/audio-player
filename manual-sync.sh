@@ -1,9 +1,9 @@
 #!/bin/bash
 
-echo "Regenerating tracks.json..."
+echo "Regenerating files.json..."
 
-# Create a fresh tracks.json
-echo "[" > tracks.json
+# Create a fresh files.json
+echo "[" > files.json
 
 first=true
 for file in *.mp3; do
@@ -15,13 +15,13 @@ for file in *.mp3; do
   if [ "$first" = true ]; then
     first=false
   else
-    echo "," >> tracks.json
+    echo "," >> files.json
   fi
 
-  echo "  {\"name\": \"$name\", \"url\": \"$url\"}" >> tracks.json
+  echo "  {\"name\": \"$name\", \"url\": \"$url\"}" >> files.json
 done
 
-echo "]" >> tracks.json
+echo "]" >> files.json
 
 echo "Committing and pushing changes to GitHub..."
 
