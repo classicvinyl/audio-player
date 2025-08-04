@@ -1,6 +1,8 @@
 #!/bin/bash
 
-echo "Regenerating files.json..."
+cd "/Users/user/Desktop/audio-player" || exit 1
+
+echo "🔄 Regenerating files.json..."
 
 # Create a fresh files.json
 echo "[" > files.json
@@ -23,10 +25,17 @@ done
 
 echo "]" >> files.json
 
-echo "Committing and pushing changes to GitHub..."
+echo "📦 Adding changes to Git..."
+git add .
 
-git add files.json
-git commit -m "Manual sync update $(date '+%Y-%m-%d %H:%M:%S')"
-git push origin main
+# Make sure we're on the correct branch and up to date
+git pull --rebase
 
-echo "✅ Sync complete."
+# Only commit if there are staged changes
+if git diff --cached --quiet; then
+  echo "⚠️ No changes to commit."
+else
+  git commit -m "Manual sync update $(date '+%Y-%m-%d %H:%M:%S')"
+  git push origin main
+  echo "✅ Changes pushed to GitHub."
+fi
