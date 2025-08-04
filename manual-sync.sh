@@ -9,8 +9,8 @@ first=true
 for file in *.mp3; do
   [ -e "$file" ] || continue
 
+  name="${file%.mp3}"
   url="https://classicvinyl.github.io/audio-player/$file"
-  name="${file%.*}"
 
   if [ "$first" = true ]; then
     first=false
@@ -25,7 +25,7 @@ echo "]" >> files.json
 
 echo "Committing and pushing changes to GitHub..."
 
-git add .
+git add files.json
 git commit -m "Manual sync update $(date '+%Y-%m-%d %H:%M:%S')"
 git push origin main
 
