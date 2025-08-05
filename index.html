@@ -8,7 +8,7 @@
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     body {
-      background-color: #552733;
+      background-color: #79828f;
       color: grey;
       margin: 0;
       font-family: system-ui, sans-serif;
@@ -22,8 +22,8 @@
     .playlist-title {
       color: grey;
       font-weight: bold;
-      font-size: 1.25rem;
-      margin-bottom: 1rem;
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
     }
     .track-item {
       cursor: pointer;
@@ -45,6 +45,7 @@
     .play-pause-button {
       width: 24px;
       height: 24px;
+      color: white;
       min-width: 24px;
       margin-right: 12px;
       cursor: pointer;
@@ -66,8 +67,8 @@
     }
     .waveform-container {
       position: relative;
-      height: 64px;
-      margin-bottom: 1rem;
+      height: 100px;
+      margin-bottom: 1.5rem;
       background-color: #121212;
       border-radius: 0.5rem;
       transition: opacity 0.3s ease;
@@ -103,14 +104,14 @@
     function createPlayPauseSVG(isPlaying) {
       if (isPlaying) {
         return `
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="#000" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <rect x="6" y="5" width="4" height="14"/>
             <rect x="14" y="5" width="4" height="14"/>
           </svg>
         `;
       } else {
         return `
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="#000" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M8 5v14l11-7z"/>
           </svg>
         `;
@@ -146,7 +147,7 @@
           container: waveformContainer,
           waveColor: 'white',
           progressColor: 'orange',
-          height: 64,
+          height: 100,
           responsive: true,
           hideScrollbar: true,
           cursorWidth: 2,
