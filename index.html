@@ -8,7 +8,7 @@
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     body {
-      background-color: #2a2a2a; /* dark gray */
+      background-color: #2a2a2a;
     }
     .playlist-container {
       background-color: #121212;
@@ -16,33 +16,14 @@
     .track-item.active {
       background-color: #333;
     }
-    .waveform-loading {
-      background-color: #1a1a1a;
-      height: 64px;
-      width: 100%;
-      position: relative;
-      overflow: hidden;
-    }
-    .waveform-loading::before {
-      content: "";
-      position: absolute;
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(to right, orange, white);
-      animation: loading 2s infinite;
-    }
-    @keyframes loading {
-      0% { width: 0%; }
-      50% { width: 100%; }
-      100% { width: 0%; }
-    }
     .wavesurfer-container {
       background-color: #121212;
-      height: 80px;
+      height: 100px;
     }
     .track-button svg {
-      width: 30px;
-      height: 30px;
+      width: 24px;
+      height: 24px;
+      fill: white;
     }
   </style>
 </head>
@@ -51,13 +32,13 @@
 
   <script>
     const playSVG = `
-      <svg viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M8 5v14l11-7z"/>
       </svg>
     `;
 
     const pauseSVG = `
-      <svg viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <rect x="6" y="5" width="4" height="14"/>
         <rect x="14" y="5" width="4" height="14"/>
       </svg>
@@ -87,15 +68,11 @@
       waveformDiv.className = 'wavesurfer-container mb-4';
       container.appendChild(waveformDiv);
 
-      const loadingBar = document.createElement('div');
-      loadingBar.className = 'waveform-loading';
-      waveformDiv.appendChild(loadingBar);
-
       const wavesurfer = WaveSurfer.create({
         container: waveformDiv,
-        waveColor: '#fff',
-        progressColor: 'orange',
-        height: 80,
+        waveColor: '#aaa',
+        progressColor: 'white',
+        height: 100,
         responsive: true,
         normalize: true,
       });
@@ -104,8 +81,28 @@
       trackList.className = 'space-y-2';
       container.appendChild(trackList);
 
-      let currentPlaying = null;
-      let currentTrackEl = null;
+      let currentTrackIndex = 0;
+      let currentButton = null;
+      let isPlaying = false;
+
+      function loadTrack(index) {
+        const track = tracks[index];
+        currentTrackIndex = index;
+        wavesurfer.load(track.path);
+
+        // Update active class
+        trackList.querySelectorAll('li').forEach((el, i) => {
+          el.classList.toggle('active', i === index);
+        });
+
+        // Reset all buttons to play icon
+        trackList.querySelectorAll('.track-button').forEach(btn => {
+          btn.innerHTML = playSVG;
+        });
+
+        isPlaying = false;
+        currentButton = trackList.children[index].querySelector('.track-button');
+      }
 
       for (let i = 0; i < tracks.length; i++) {
         const track = tracks[i];
@@ -113,14 +110,14 @@
         listItem.className = 'track-item flex items-center justify-between p-2 rounded cursor-pointer';
 
         const leftSide = document.createElement('div');
-        leftSide.className = 'flex items-center space-x-2 flex-1 overflow-hidden';
+        leftSide.className = 'flex items-center space-x-3 overflow-hidden flex-1';
 
         const playButton = document.createElement('button');
         playButton.className = 'track-button focus:outline-none';
         playButton.innerHTML = playSVG;
 
         const nameSpan = document.createElement('span');
-        nameSpan.className = 'truncate';
+        nameSpan.className = 'truncate hover:underline';
         nameSpan.textContent = track.name;
 
         leftSide.appendChild(playButton);
@@ -139,54 +136,53 @@
         listItem.appendChild(durationSpan);
         trackList.appendChild(listItem);
 
-        // Load first track
-        if (i === 0) {
-          wavesurfer.load(track.path);
-          currentPlaying = audio;
-          currentTrackEl = listItem;
-          listItem.classList.add('active');
-        }
-
-        // Clicking the track name loads the waveform
+        // Click on track name → load that track
         nameSpan.addEventListener('click', () => {
-          if (currentPlaying && !currentPlaying.paused) {
-            currentPlaying.pause();
+          if (currentTrackIndex !== i) {
+            loadTrack(i);
           }
-          wavesurfer.load(track.path);
-          currentPlaying = audio;
-
-          document.querySelectorAll('.track-item').forEach(el => el.classList.remove('active'));
-          listItem.classList.add('active');
         });
 
-        // Clicking the button plays/pauses the current loaded track
+        // Click on play/pause button
         playButton.addEventListener('click', (e) => {
           e.stopPropagation();
-          if (currentPlaying !== audio) return;
 
-          if (wavesurfer.isPlaying()) {
-            wavesurfer.pause();
-            playButton.innerHTML = playSVG;
+          if (currentTrackIndex !== i) {
+            loadTrack(i);
+            wavesurfer.once('ready', () => {
+              wavesurfer.play();
+              playButton.innerHTML = pauseSVG;
+              isPlaying = true;
+            });
           } else {
-            wavesurfer.play();
-            document.querySelectorAll('.track-button').forEach(btn => btn.innerHTML = playSVG);
-            playButton.innerHTML = pauseSVG;
+            if (isPlaying) {
+              wavesurfer.pause();
+              playButton.innerHTML = playSVG;
+              isPlaying = false;
+            } else {
+              wavesurfer.play();
+              playButton.innerHTML = pauseSVG;
+              isPlaying = true;
+            }
           }
-        });
-
-        // When waveform finishes, load next track
-        wavesurfer.on('finish', () => {
-          const next = listItem.nextElementSibling;
-          if (next) {
-            next.querySelector('span').click();
-          }
-        });
-
-        // When waveform is ready, remove loading bar
-        wavesurfer.on('ready', () => {
-          loadingBar.remove();
         });
       }
+
+      // When waveform finishes → load next track
+      wavesurfer.on('finish', () => {
+        const nextIndex = currentTrackIndex + 1;
+        if (nextIndex < tracks.length) {
+          loadTrack(nextIndex);
+          wavesurfer.once('ready', () => {
+            wavesurfer.play();
+            isPlaying = true;
+            currentButton.innerHTML = pauseSVG;
+          });
+        }
+      });
+
+      // Auto-load first track
+      loadTrack(0);
 
       return container;
     }
