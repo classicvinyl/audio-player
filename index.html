@@ -60,7 +60,7 @@
         listItem.className = 'track-item cursor-pointer flex justify-between items-center p-2 rounded hover:bg-gray-200';
 
         const nameSpan = document.createElement('span');
-        nameSpan.textContent = track.name;
+        nameSpan.textContent = track.title;  // <-- Changed from track.name to track.title
         listItem.appendChild(nameSpan);
 
         const durationSpan = document.createElement('span');
@@ -68,7 +68,7 @@
         durationSpan.textContent = '--:--';
         listItem.appendChild(durationSpan);
 
-        const audio = new Audio(track.path);
+        const audio = new Audio(track.file); // <-- track.file contains the relative path
         audio.addEventListener('loadedmetadata', () => {
           durationSpan.textContent = formatTime(audio.duration);
         });
@@ -76,7 +76,7 @@
 
         listItem.addEventListener('click', () => {
           audioElements.forEach((a) => a.pause());
-          wavesurfer.load(track.path);
+          wavesurfer.load(track.file);
 
           document.querySelectorAll('.track-item').forEach(el => el.classList.remove('active'));
           listItem.classList.add('active');
@@ -99,13 +99,17 @@
     }
 
     async function init() {
-      const files = await loadFiles();
+      const files = await loadFiles();  // files is an array of playlist objects
+
       const playlistsContainer = document.getElementById('playlists');
 
-      for (const [playlistName, tracks] of Object.entries(files)) {
+      files.forEach(playlistObj => {
+        const playlistName = playlistObj.playlist;
+        const tracks = playlistObj.tracks;
+
         const playlistElement = createPlaylist(playlistName, tracks);
         playlistsContainer.appendChild(playlistElement);
-      }
+      });
     }
 
     init();
