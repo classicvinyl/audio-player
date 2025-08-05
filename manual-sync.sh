@@ -1,41 +1,91 @@
 #!/bin/bash
 
-cd "/Users/user/Desktop/audio-player" || exit 1
+echo ""
+echo "Regenerating files.json..."
 
-echo "🔄 Regenerating files.json..."
+# GitHub Pages base URL
+BASE_URL="https://classicvinyl.github.io/audio-player"
 
-# Create a fresh files.json
-echo "[" > files.json
+# Output file
+FILES_JSON="files.json"
 
-first=true
-for file in *.mp3; do
-  [ -e "$file" ] || continue
+# Start JSON
+echo "[" > "$FILES_JSON"
 
-  name="${file%.mp3}"
-  url="https://classicvinyl.github.io/audio-player/$file"
+first_playlist=true
 
-  if [ "$first" = true ]; then
-    first=false
-  else
-    echo "," >> files.json
-  fi
+# Loop through subdirectories only
+for dir in */ ; do
+    # Skip hidden folders and non-directories
+    [[ "$dir" == .* || ! -d "$dir" ]] && continue
 
-  echo "  {\"name\": \"$name\", \"url\": \"$url\"}" >> files.json
+    playlist_name="${dir%/}"
+    playlist_path="$dir"
+
+    # Find MP3 files in the playlist
+    mp3_files=()
+    while IFS= read -r -d $'\0' file; do
+        mp3_files+=("$file")
+    done < <(find "$playlist_path" -maxdepth 1 -type f -name "*.mp3" -print0 | sort -z)
+
+    # Skip empty playlists
+    [[ ${#mp3_files[@]} -eq 0 ]] && continue
+
+    # Add comma between playlists
+    if [ "$first_playlist" = false ]; then
+        echo "," >> "$FILES_JSON"
+    else
+        first_playlist=false
+    fi
+
+    # Begin playlist object
+    echo "  {" >> "$FILES_JSON"
+    echo "    \"playlist\": \"${playlist_name}\"," >> "$FILES_JSON"
+    echo "    \"tracks\": [" >> "$FILES_JSON"
+
+    # Add tracks
+    for i in "${!mp3_files[@]}"; do
+        filepath="${mp3_files[$i]}"
+        filename=$(basename -- "$filepath")
+        name="${filename%.*}"
+        url="$BASE_URL/$filepath"
+
+        # Clean path for URL (remove spaces, etc.)
+        url="${url// /%20}"
+
+        echo "      {" >> "$FILES_JSON"
+        echo "        \"title\": \"${name}\"," >> "$FILES_JSON"
+        echo "        \"url\": \"${url}\"" >> "$FILES_JSON"
+        if [ $i -lt $((${#mp3_files[@]} - 1)) ]; then
+            echo "      }," >> "$FILES_JSON"
+        else
+            echo "      }" >> "$FILES_JSON"
+        fi
+    done
+
+    echo "    ]" >> "$FILES_JSON"
+    echo "  }" >> "$FILES_JSON"
 done
 
-echo "]" >> files.json
+# End JSON
+echo "]" >> "$FILES_JSON"
 
-echo "📦 Adding changes to Git..."
-git add .
+echo "✅ files.json regenerated."
 
-# Make sure we're on the correct branch and up to date
+echo ""
+echo "Adding changes..."
+git add -A
+
+echo "Committing changes..."
+git commit -m "Manual sync update $(date '+%Y-%m-%d %H:%M:%S')" || echo "Nothing to commit"
+
+echo "Discarding unstaged changes..."
+git checkout -- .
+
+echo "Pulling latest changes..."
 git pull --rebase
 
-# Only commit if there are staged changes
-if git diff --cached --quiet; then
-  echo "⚠️ No changes to commit."
-else
-  git commit -m "Manual sync update $(date '+%Y-%m-%d %H:%M:%S')"
-  git push origin main
-  echo "✅ Changes pushed to GitHub."
-fi
+echo "Pushing to GitHub..."
+git push
+
+echo "✅ Sync complete."
