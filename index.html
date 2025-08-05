@@ -205,16 +205,16 @@
         }
 
         wavesurfer.on('loading', (percent) => {
+          console.log(`Loading: ${percent}%`);
           loadingProgressBar.style.width = percent + '%';
         });
 
         wavesurfer.on('ready', () => {
-          if (isPlaying) return; // if already playing, do nothing
+          console.log('Wavesurfer ready');
           loadingProgressBar.style.width = '100%';
           setTimeout(() => {
             loadingProgressBar.style.display = 'none';
             waveformContainer.style.opacity = '1';
-            // Don't autoplay on preload (autoplay = false)
             if (isPlaying) {
               wavesurfer.play();
             }
@@ -222,6 +222,13 @@
             updateActiveTrack();
             globalCurrent = { wavesurfer, playlistIndex, trackIndex: currentTrackIndex };
           }, 200);
+        });
+
+        wavesurfer.on('error', (e) => {
+          console.error('Wavesurfer error:', e);
+          loadingProgressBar.style.display = 'none';
+          waveformContainer.style.opacity = '1';
+          alert('Error loading audio file. See console for details.');
         });
 
         wavesurfer.on('pause', () => {
@@ -235,6 +242,7 @@
         });
 
         wavesurfer.on('finish', () => {
+          console.log('Playback finished');
           const nextIndex = currentTrackIndex + 1;
           if (nextIndex < tracks.length) {
             loadTrack(nextIndex);
