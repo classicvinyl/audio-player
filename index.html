@@ -2,51 +2,59 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
   <title>Audio Player</title>
   <script src="https://unpkg.com/wavesurfer.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <style>
     body {
-      background-color: #552733;
+      background-color: #222222; /* dark grey */
       color: grey;
       margin: 0;
       font-family: system-ui, sans-serif;
     }
+    #playlists {
+      padding: 2rem 1rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
     .playlist-container {
       background-color: #121212;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      margin-bottom: 3rem;
+      padding: 1.5rem 1.5rem 2rem;
+      border-radius: 0.75rem;
+      margin-bottom: 3.5rem;
+      box-shadow: 0 0 10px rgba(0,0,0,0.7);
     }
     .playlist-title {
       color: grey;
-      font-weight: bold;
-      font-size: 1.25rem;
-      margin-bottom: 1rem;
+      font-weight: 700;
+      font-size: 1.5rem;
+      margin-bottom: 1.25rem;
     }
     .track-item {
       cursor: pointer;
       display: flex;
       align-items: center;
-      padding: 0.5rem 1rem;
-      border-radius: 0.375rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
       color: white;
       transition: background-color 0.3s;
       user-select: none;
+      flex-wrap: wrap; /* for mobile wrap */
+      gap: 0.5rem;
     }
     .track-item:hover {
       background-color: #2a1a26;
     }
     .track-item.active {
       background-color: grey;
-      font-weight: bold;
+      font-weight: 700;
     }
     .play-pause-button {
       width: 24px;
       height: 24px;
       min-width: 24px;
-      margin-right: 12px;
+      margin-right: 1rem;
       cursor: pointer;
       flex-shrink: 0;
       display: flex;
@@ -56,6 +64,8 @@
     .track-title {
       flex-grow: 1;
       font-size: 1rem;
+      overflow-wrap: anywhere; /* allow breaks */
+      min-width: 0; /* for flexbox */
     }
     .duration {
       color: #bbb;
@@ -63,11 +73,12 @@
       min-width: 40px;
       text-align: right;
       user-select: none;
+      flex-shrink: 0;
     }
     .waveform-container {
       position: relative;
       height: 64px;
-      margin-bottom: 1rem;
+      margin-bottom: 1.25rem;
       background-color: #121212;
       border-radius: 0.5rem;
       transition: opacity 0.3s ease;
@@ -86,7 +97,7 @@
   </style>
 </head>
 <body>
-  <div id="playlists" class="space-y-12 p-6"></div>
+  <div id="playlists" class="space-y-14"></div>
 
   <script>
     async function loadFiles() {
@@ -139,7 +150,7 @@
         waveformContainer.appendChild(loadingProgressBar);
 
         const trackList = document.createElement('ul');
-        trackList.className = 'space-y-2';
+        trackList.className = 'space-y-3';
         container.appendChild(trackList);
 
         const wavesurfer = WaveSurfer.create({
@@ -197,7 +208,7 @@
         });
 
         wavesurfer.on('ready', () => {
-          if (isPlaying) return; // Don't autoplay if paused by loadTrack(false)
+          if (isPlaying) return;
           loadingProgressBar.style.width = '100%';
           setTimeout(() => {
             loadingProgressBar.style.display = 'none';
@@ -249,6 +260,7 @@
 
           const playPauseButton = document.createElement('div');
           playPauseButton.className = 'play-pause-button';
+          // Show play icon for first track preload, not pause
           playPauseButton.innerHTML = createPlayPauseSVG(false);
           listItem.appendChild(playPauseButton);
 
