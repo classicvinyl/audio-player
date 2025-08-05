@@ -2,324 +2,155 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Audio Player</title>
   <script src="https://unpkg.com/wavesurfer.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     body {
-      background-color: #552733; /* (3) overall page background */
-      color: grey; /* default text grey */
+      background-color: #2a2a2a;
+      font-family: sans-serif;
+      color: white;
       margin: 0;
-      font-family: system-ui, sans-serif;
+      padding: 20px;
     }
-    .playlist-container {
-      background-color: #121212; /* (4) playlist bg */
-      padding: 1rem;
-      border-radius: 0.5rem;
-      margin-bottom: 3rem;
+    .playlist {
+      background-color: #121212;
+      margin-bottom: 40px;
+      padding: 20px;
+      border-radius: 8px;
     }
-    .playlist-title {
+    .playlist h2 {
       color: grey;
-      font-weight: bold;
-      font-size: 1.25rem;
-      margin-bottom: 1rem;
+      margin-bottom: 20px;
     }
-    .track-item {
-      cursor: pointer;
+    .track {
       display: flex;
       align-items: center;
-      padding: 0.5rem 1rem;
-      border-radius: 0.375rem;
-      color: white; /* (5) track text color */
-      transition: background-color 0.3s;
-      user-select: none;
+      gap: 10px;
+      margin-bottom: 15px;
     }
-    .track-item:hover {
-      background-color: #2a1a26;
+    .track.active {
+      background-color: #444;
     }
-    .track-item.active {
-      background-color: grey; /* active bg */
-      font-weight: bold;
-    }
-    .play-pause-button {
-      width: 24px;    /* same height as track text approx */
-      height: 24px;
-      min-width: 24px;
-      border-radius: 4px;
-      background: linear-gradient(135deg, #ff7f50, #ff4500);
-      box-shadow: 0 2px 4px rgba(255, 69, 0, 0.6);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-      margin-right: 12px;
+    .track svg {
+      width: 30px;
+      height: 30px;
       flex-shrink: 0;
-      transition: background 0.3s;
     }
-    .play-pause-button:hover {
-      background: linear-gradient(135deg, #ff6333, #e03e00);
-    }
-    .play-icon, .pause-icon {
-      fill: white;
-      width: 14px;
-      height: 14px;
-    }
-    .track-title {
-      flex-grow: 1;
-      font-size: 1rem;
-    }
-    .duration {
-      color: #bbb;
-      font-size: 0.85rem;
-      min-width: 40px;
-      text-align: right;
-      user-select: none;
+    .track span {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .waveform-container {
-      position: relative;
-      height: 64px;
-      margin-bottom: 1rem;
-      background-color: #121212; /* (5) waveform bg */
-      border-radius: 0.5rem;
-      transition: opacity 0.3s ease;
-    }
-    /* loading progress bar */
-    .loading-progress-bar {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      height: 6px;
-      width: 0%;
-      background-color: orange;
-      border-radius: 0 0 0.5rem 0.5rem;
-      transition: width 0.2s ease;
-      z-index: 5;
+      margin-top: 20px;
+      height: 100px;
+      background-color: #121212;
     }
   </style>
 </head>
 <body>
-  <div id="playlists" class="space-y-12 p-6"></div>
+  <div id="app"></div>
 
   <script>
-    async function loadFiles() {
-      const res = await fetch('files.json');
-      return res.json();
-    }
+    const filesUrl = 'files.json';
+    let wavesurfer;
+    let currentTrackEl = null;
+    let currentPlayBtn = null;
 
-    function formatTime(seconds) {
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
-      return `${mins}:${secs}`;
-    }
+    const playSVG = `
+      <svg fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    `;
+    const pauseSVG = `
+      <svg fill="white" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
+    `;
 
-    function createPlayPauseSVG(isPlaying) {
-      if (isPlaying) {
-        // Pause icon
-        return `
-          <svg class="pause-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <rect x="6" y="5" width="4" height="14"></rect>
-            <rect x="14" y="5" width="4" height="14"></rect>
-          </svg>`;
-      } else {
-        // Play icon
-        return `
-          <svg class="play-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 5v14l11-7z"></path>
-          </svg>`;
-      }
-    }
+    async function init() {
+      const res = await fetch(filesUrl);
+      const data = await res.json();
 
-    (function(){
-      // Global tracker to hold all wavesurfers & current playing track
-      const allWaveSurfers = [];
-      let globalCurrent = { wavesurfer: null, playlistIndex: null, trackIndex: null };
+      const app = document.getElementById('app');
 
-      function createPlaylist(name, tracks, playlistIndex) {
+      data.forEach((playlist, playlistIndex) => {
         const container = document.createElement('div');
-        container.className = 'playlist-container';
+        container.className = 'playlist';
 
-        const title = document.createElement('h2');
-        title.className = 'playlist-title';
-        title.textContent = name;
-        container.appendChild(title);
+        const header = document.createElement('h2');
+        header.textContent = playlist.playlist;
+        container.appendChild(header);
 
-        const waveformContainer = document.createElement('div');
-        waveformContainer.className = 'waveform-container';
-        container.appendChild(waveformContainer);
+        const waveContainer = document.createElement('div');
+        waveContainer.className = 'waveform-container';
+        waveContainer.id = `waveform-${playlistIndex}`;
+        container.appendChild(waveContainer);
 
-        // loading progress bar
-        const loadingProgressBar = document.createElement('div');
-        loadingProgressBar.className = 'loading-progress-bar';
-        waveformContainer.appendChild(loadingProgressBar);
+        playlist.tracks.forEach((track, index) => {
+          const trackEl = document.createElement('div');
+          trackEl.className = 'track';
 
-        const trackList = document.createElement('ul');
-        trackList.className = 'space-y-2';
-        container.appendChild(trackList);
+          const btn = document.createElement('div');
+          btn.innerHTML = playSVG;
 
-        const wavesurfer = WaveSurfer.create({
-          container: waveformContainer,
-          waveColor: 'white',
-          progressColor: 'orange',
-          height: 64,
-          responsive: true,
-          hideScrollbar: true,
-          cursorWidth: 2,
-          cursorColor: 'orange'
-        });
+          const name = document.createElement('span');
+          name.textContent = track.title;
 
-        allWaveSurfers.push(wavesurfer);
+          trackEl.appendChild(btn);
+          trackEl.appendChild(name);
+          container.appendChild(trackEl);
 
-        let currentTrackIndex = 0;
-        let isPlaying = false;
-
-        function pauseGlobal() {
-          if(globalCurrent.wavesurfer && globalCurrent.wavesurfer !== wavesurfer) {
-            globalCurrent.wavesurfer.pause();
-            // Remove active class on previous playlist tracks
-            const prevPlaylist = document.querySelectorAll('.playlist-container')[globalCurrent.playlistIndex];
-            if(prevPlaylist){
-              prevPlaylist.querySelectorAll('.track-item').forEach((el, i) => {
-                el.classList.remove('active');
-              });
-            }
-            globalCurrent = { wavesurfer: null, playlistIndex: null, trackIndex: null };
-          }
-        }
-
-        function loadTrack(index) {
-          if (index < 0 || index >= tracks.length) return;
-          pauseGlobal();
-          currentTrackIndex = index;
-          loadingProgressBar.style.width = '0%';
-          loadingProgressBar.style.display = 'block';
-          waveformContainer.style.opacity = '0.3';
-          wavesurfer.load(tracks[index].file);
-        }
-
-        wavesurfer.on('loading', (percent) => {
-          loadingProgressBar.style.width = percent + '%';
-        });
-
-        wavesurfer.on('ready', () => {
-          loadingProgressBar.style.width = '100%';
-          setTimeout(() => {
-            loadingProgressBar.style.display = 'none';
-            waveformContainer.style.opacity = '1';
-            wavesurfer.play();
-            isPlaying = true;
-            updatePlayPauseButton();
-            updateActiveTrack();
-
-            // Update globalCurrent tracker
-            globalCurrent = { wavesurfer, playlistIndex, trackIndex: currentTrackIndex };
-          }, 200);
-        });
-
-        wavesurfer.on('pause', () => {
-          isPlaying = false;
-          updatePlayPauseButton();
-        });
-
-        wavesurfer.on('play', () => {
-          isPlaying = true;
-          updatePlayPauseButton();
-        });
-
-        wavesurfer.on('finish', () => {
-          const nextIndex = currentTrackIndex + 1;
-          if (nextIndex < tracks.length) {
-            loadTrack(nextIndex);
-          } else {
-            isPlaying = false;
-            updatePlayPauseButton();
-            updateActiveTrack();
-          }
-        });
-
-        function updateActiveTrack() {
-          trackList.querySelectorAll('li').forEach((el, i) => {
-            el.classList.toggle('active', i === currentTrackIndex);
-          });
-        }
-
-        function updatePlayPauseButton() {
-          // Update the single play/pause button for current track only
-          trackList.querySelectorAll('.play-pause-button').forEach((btn, idx) => {
-            btn.innerHTML = createPlayPauseSVG(isPlaying && idx === currentTrackIndex);
-          });
-        }
-
-        tracks.forEach((track, index) => {
-          const listItem = document.createElement('li');
-          listItem.className = 'track-item';
-
-          // Play/pause button inline with track name
-          const playPauseButton = document.createElement('div');
-          playPauseButton.className = 'play-pause-button';
-          playPauseButton.innerHTML = createPlayPauseSVG(false);
-          listItem.appendChild(playPauseButton);
-
-          const nameSpan = document.createElement('span');
-          nameSpan.className = 'track-title';
-          nameSpan.textContent = track.title;
-          listItem.appendChild(nameSpan);
-
-          const durationSpan = document.createElement('span');
-          durationSpan.className = 'duration';
-          durationSpan.textContent = '--:--';
-          listItem.appendChild(durationSpan);
-
-          // Preload audio metadata to get duration
-          const audio = new Audio(track.file);
-          audio.addEventListener('loadedmetadata', () => {
-            durationSpan.textContent = formatTime(audio.duration);
-          });
-
-          // Clicking either button or track plays/pauses
-          function onTrackClick() {
-            if (currentTrackIndex === index && isPlaying) {
-              wavesurfer.pause();
-              isPlaying = false;
-            } else {
-              loadTrack(index);
-            }
-            updatePlayPauseButton();
-            updateActiveTrack();
-          }
-
-          playPauseButton.addEventListener('click', (e) => {
+          // Bind click separately to button and track name
+          btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            onTrackClick();
+            if (!wavesurfer || currentTrackEl !== trackEl) return;
+            if (wavesurfer.isPlaying()) {
+              wavesurfer.pause();
+              btn.innerHTML = playSVG;
+            } else {
+              wavesurfer.play();
+              btn.innerHTML = pauseSVG;
+            }
           });
-          listItem.addEventListener('click', onTrackClick);
 
-          trackList.appendChild(listItem);
+          name.addEventListener('click', () => {
+            if (currentTrackEl) currentTrackEl.classList.remove('active');
+            if (currentPlayBtn) currentPlayBtn.innerHTML = playSVG;
+            trackEl.classList.add('active');
+            currentTrackEl = trackEl;
+            currentPlayBtn = btn;
+
+            if (wavesurfer) wavesurfer.destroy();
+
+            wavesurfer = WaveSurfer.create({
+              container: `#waveform-${playlistIndex}`,
+              waveColor: 'white',
+              progressColor: 'orange',
+              height: 100,
+            });
+
+            wavesurfer.load(track.file);
+
+            wavesurfer.on('ready', () => {
+              wavesurfer.play();
+              btn.innerHTML = pauseSVG;
+            });
+
+            wavesurfer.on('finish', () => {
+              btn.innerHTML = playSVG;
+            });
+          });
+
+          // Auto preload the first track of each playlist
+          if (index === 0) {
+            setTimeout(() => name.click(), 0);
+          }
         });
 
-        // (5) Preload first track on playlist creation
-        if (tracks.length > 0) {
-          loadTrack(0);
-        }
+        app.appendChild(container);
+      });
+    }
 
-        return container;
-      }
-
-      async function init() {
-        const files = await loadFiles();
-        const playlistsContainer = document.getElementById('playlists');
-
-        files.forEach((playlistObj, i) => {
-          const playlistName = playlistObj.playlist;
-          const tracks = playlistObj.tracks;
-
-          const playlistElement = createPlaylist(playlistName, tracks, i);
-          playlistsContainer.appendChild(playlistElement);
-        });
-      }
-
-      window.addEventListener('load', init);
-    })();
+    init();
   </script>
 </body>
 </html>
