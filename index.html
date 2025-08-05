@@ -1,173 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>uous</title>
-    <script src="https://unpkg.com/wavesurfer.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-    <style>
-      body {
-        background-color: #121212;
-        font-family: 'Helvetica Neue', sans-serif;
-        color: #fff;
-      }
-      .track-card {
-        padding: 1rem;
-        border: 1px solid #444;
-        border-radius: 0.75rem;
-        box-shadow: 0 2px 6px rgba(255 85 0 / 0.3);
-        user-select: none;
-      }
-      .track-card:hover {
-        background-color: #1e1e1e;
-      }
-      .play-btn {
-        background-color: #ff5500; /* orange background */
-        border: none;
-        cursor: pointer;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        border-radius: 50%;
-      }
-      /* Remove old play/pause icons styles */
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Audio Player</title>
+  <script src="https://unpkg.com/wavesurfer.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .track-item.active {
+      background-color: #e5e7eb; /* Tailwind's gray-200 */
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4">
+  <div id="playlists" class="space-y-12"></div>
 
-      .track-title {
-        font-weight: 600;
-        flex: 1;
-        margin-right: 1rem;
-        white-space: nowrap; /* no wrap */
-        overflow: hidden;
-        /* no text-overflow ellipsis */
-        font-size: 1.25rem;
-        transition: font-size 0.2s ease;
-      }
-      .track-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
-      @media (max-width: 640px) {
-        .track-title {
-          font-size: 1rem; /* base font size on mobile */
-          margin-right: 0.75rem;
-          max-width: calc(100vw - 80px); /* leave space for play button */
-        }
-      }
-    </style>
-  </head>
-  <body class="min-h-screen p-6">
-    <div id="track-list" class="space-y-6"></div>
+  <script>
+    async function loadFiles() {
+      const res = await fetch('files.json');
+      return res.json();
+    }
 
-    <script>
-      const jsonURL = "https://classicvinyl.github.io/audio-player/files.json";
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+      return `${mins}:${secs}`;
+    }
 
-      // Adjust font size of element until it fits its container width (min 0.6rem)
-      function fitTextToContainer(el, containerWidth) {
-        let fontSize = parseFloat(window.getComputedStyle(el).fontSize);
-        const minFontSize = 10; // pixels (~0.6rem)
-        while (el.scrollWidth > containerWidth && fontSize > minFontSize) {
-          fontSize -= 1;
-          el.style.fontSize = fontSize + "px";
-        }
-      }
+    function createPlaylist(name, tracks) {
+      const container = document.createElement('div');
+      container.className = 'bg-white p-4 rounded shadow';
 
-      // SVG for SoundCloud-style Play icon (black)
-      const playSVG = `
-        <svg width="35" height="35" viewBox="0 0 24 24" fill="#000" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M8 5v14l11-7z"/>
-        </svg>
-      `;
+      const title = document.createElement('h2');
+      title.className = 'text-xl font-bold mb-4';
+      title.textContent = name;
+      container.appendChild(title);
 
-      // SVG for SoundCloud-style Pause icon (black)
-      const pauseSVG = `
-        <svg width="35" height="35" viewBox="0 0 24 24" fill="#000" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <rect x="6" y="5" width="4" height="14"/>
-          <rect x="14" y="5" width="4" height="14"/>
-        </svg>
-      `;
+      const waveformDiv = document.createElement('div');
+      waveformDiv.className = 'w-full h-24 mb-4';
+      container.appendChild(waveformDiv);
 
-      async function loadTracks() {
-        const res = await fetch(jsonURL);
-        const tracks = await res.json();
+      const wavesurfer = WaveSurfer.create({
+        container: waveformDiv,
+        waveColor: '#ccc',
+        progressColor: '#1f2937', // Tailwind gray-800
+        height: 64,
+        responsive: true
+      });
 
-        const list = document.getElementById("track-list");
-        list.innerHTML = ''; // Clear existing tracks on reload
+      const trackList = document.createElement('ul');
+      trackList.className = 'space-y-2';
+      container.appendChild(trackList);
 
-        const wavesurfers = [];
+      const audioElements = [];
 
-        tracks.forEach((track, i) => {
-          const id = `waveform-${i}`;
+      tracks.forEach((track, index) => {
+        const listItem = document.createElement('li');
+        listItem.className = 'track-item cursor-pointer flex justify-between items-center p-2 rounded hover:bg-gray-200';
 
-          const container = document.createElement("div");
-          container.className = "track-card";
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = track.name;
+        listItem.appendChild(nameSpan);
 
-          container.innerHTML = `
-            <div class="track-header">
-              <div class="track-title">${track.name}</div>
-              <button class="play-btn" data-id="${id}" aria-label="Play/pause">${playSVG}</button>
-            </div>
-            <div id="${id}" class="mt-3"></div>
-          `;
+        const durationSpan = document.createElement('span');
+        durationSpan.className = 'text-sm text-gray-500';
+        durationSpan.textContent = '--:--';
+        listItem.appendChild(durationSpan);
 
-          list.appendChild(container);
-
-          const wavesurfer = WaveSurfer.create({
-            container: `#${id}`,
-            waveColor: '#666',
-            progressColor: '#ff5500',
-            height: 60,
-            barWidth: 2,
-            responsive: true,
-            normalize: true,
-          });
-
-          wavesurfer.load(track.url);
-
-          const btn = container.querySelector(".play-btn");
-          const titleEl = container.querySelector(".track-title");
-
-          wavesurfers.push({ ws: wavesurfer, btn: btn });
-
-          btn.addEventListener("click", () => {
-            if (wavesurfer.isPlaying()) {
-              wavesurfer.pause();
-              btn.innerHTML = playSVG;
-            } else {
-              wavesurfers.forEach(({ ws, btn: otherBtn }) => {
-                if (ws !== wavesurfer) {
-                  ws.pause();
-                  otherBtn.innerHTML = playSVG;
-                }
-              });
-              wavesurfer.play();
-              btn.innerHTML = pauseSVG;
-            }
-          });
-
-          wavesurfer.on('finish', () => {
-            btn.innerHTML = playSVG;
-          });
-
-          // Call fitTextToContainer for initial sizing
-          function adjustTitle() {
-            titleEl.style.fontSize = ""; // reset font size
-            const containerWidth = titleEl.parentElement.clientWidth - btn.clientWidth - 16; // padding margin buffer
-            fitTextToContainer(titleEl, containerWidth);
-          }
-
-          adjustTitle();
-
-          // Also adjust on window resize
-          window.addEventListener("resize", adjustTitle);
+        const audio = new Audio(track.path);
+        audio.addEventListener('loadedmetadata', () => {
+          durationSpan.textContent = formatTime(audio.duration);
         });
-      }
+        audioElements.push(audio);
 
-      loadTracks();
-    </script>
-  </body>
+        listItem.addEventListener('click', () => {
+          audioElements.forEach((a) => a.pause());
+          wavesurfer.load(track.path);
+
+          document.querySelectorAll('.track-item').forEach(el => el.classList.remove('active'));
+          listItem.classList.add('active');
+
+          wavesurfer.once('ready', () => {
+            wavesurfer.play();
+          });
+
+          wavesurfer.un('finish');
+          wavesurfer.on('finish', () => {
+            const next = listItem.nextElementSibling;
+            if (next) next.click();
+          });
+        });
+
+        trackList.appendChild(listItem);
+      });
+
+      return container;
+    }
+
+    async function init() {
+      const files = await loadFiles();
+      const playlistsContainer = document.getElementById('playlists');
+
+      for (const [playlistName, tracks] of Object.entries(files)) {
+        const playlistElement = createPlaylist(playlistName, tracks);
+        playlistsContainer.appendChild(playlistElement);
+      }
+    }
+
+    init();
+  </script>
+</body>
 </html>
