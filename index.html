@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>uous jamz</title>
+  <title>Audio Player</title>
   <script src="https://unpkg.com/wavesurfer.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     body {
-      background-color: grey;
+      background-color: #552733;
       color: grey;
       margin: 0;
       font-family: system-ui, sans-serif;
@@ -22,8 +22,8 @@
     .playlist-title {
       color: grey;
       font-weight: bold;
-      font-size: 2.5rem;
-      margin-bottom: 1.5rem;
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
     }
     .track-item {
       cursor: pointer;
@@ -45,7 +45,6 @@
     .play-pause-button {
       width: 24px;
       height: 24px;
-      color: white;
       min-width: 24px;
       margin-right: 12px;
       cursor: pointer;
@@ -67,8 +66,8 @@
     }
     .waveform-container {
       position: relative;
-      height: 150px;
-      margin-bottom: 2rem;
+      height: 64px;
+      margin-bottom: 1rem;
       background-color: #121212;
       border-radius: 0.5rem;
       transition: opacity 0.3s ease;
@@ -98,23 +97,23 @@
     function formatTime(seconds) {
       const mins = Math.floor(seconds / 60);
       const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
-      return ${mins}:${secs};
+      return `${mins}:${secs}`;
     }
 
     function createPlayPauseSVG(isPlaying) {
       if (isPlaying) {
-        return 
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        return `
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#000" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <rect x="6" y="5" width="4" height="14"/>
             <rect x="14" y="5" width="4" height="14"/>
           </svg>
-        ;
+        `;
       } else {
-        return 
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        return `
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#000" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M8 5v14l11-7z"/>
           </svg>
-        ;
+        `;
       }
     }
 
@@ -147,7 +146,7 @@
           container: waveformContainer,
           waveColor: 'white',
           progressColor: 'orange',
-          height: 150,
+          height: 64,
           responsive: true,
           hideScrollbar: true,
           cursorWidth: 2,
