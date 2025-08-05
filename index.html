@@ -2,154 +2,314 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Audio Player</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>uous jamz</title>
   <script src="https://unpkg.com/wavesurfer.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     body {
-      background-color: #2a2a2a;
-      font-family: sans-serif;
-      color: white;
-      margin: 0;
-      padding: 20px;
-    }
-    .playlist {
-      background-color: #121212;
-      margin-bottom: 40px;
-      padding: 20px;
-      border-radius: 8px;
-    }
-    .playlist h2 {
+      background-color: grey;
       color: grey;
-      margin-bottom: 20px;
+      margin: 0;
+      font-family: system-ui, sans-serif;
     }
-    .track {
+    .playlist-container {
+      background-color: #121212;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 3rem;
+    }
+    .playlist-title {
+      color: grey;
+      font-weight: bold;
+      font-size: 2.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .track-item {
+      cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 15px;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      color: white;
+      transition: background-color 0.3s;
+      user-select: none;
+    }
+    .track-item:hover {
+      background-color: #2a1a26;
+    }
+    .track-item.active {
+      background-color: grey;
+      font-weight: bold;
+    }
+    .play-pause-button {
+      width: 24px;
+      height: 24px;
+      color: white;
+      min-width: 24px;
+      margin-right: 12px;
       cursor: pointer;
-    }
-    .track.active {
-      background-color: #444;
-    }
-    .track svg {
-      width: 30px;
-      height: 30px;
       flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .track span {
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .track-title {
+      flex-grow: 1;
+      font-size: 1rem;
+    }
+    .duration {
+      color: #bbb;
+      font-size: 0.85rem;
+      min-width: 40px;
+      text-align: right;
+      user-select: none;
     }
     .waveform-container {
-      margin-top: 20px;
-      height: 100px;
+      position: relative;
+      height: 150px;
+      margin-bottom: 2rem;
       background-color: #121212;
+      border-radius: 0.5rem;
+      transition: opacity 0.3s ease;
+    }
+    .loading-progress-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 6px;
+      width: 0%;
+      background-color: orange;
+      border-radius: 0 0 0.5rem 0.5rem;
+      transition: width 0.2s ease;
+      z-index: 5;
     }
   </style>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="playlists" class="space-y-12 p-6"></div>
 
   <script>
-    const filesUrl = 'files.json';
-    let wavesurfer;
-    let currentTrackEl = null;
-    let currentPlayBtn = null;
+    async function loadFiles() {
+      const res = await fetch('files.json');
+      return res.json();
+    }
 
-    const playSVG = `
-      <svg fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-    `;
-    const pauseSVG = `
-      <svg fill="white" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
-    `;
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+      return ${mins}:${secs};
+    }
 
-    async function init() {
-      const res = await fetch(filesUrl);
-      const data = await res.json();
+    function createPlayPauseSVG(isPlaying) {
+      if (isPlaying) {
+        return 
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="6" y="5" width="4" height="14"/>
+            <rect x="14" y="5" width="4" height="14"/>
+          </svg>
+        ;
+      } else {
+        return 
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+        ;
+      }
+    }
 
-      const app = document.getElementById('app');
+    (function(){
+      const allWaveSurfers = [];
+      let globalCurrent = { wavesurfer: null, playlistIndex: null, trackIndex: null };
 
-      data.forEach((playlist, playlistIndex) => {
+      function createPlaylist(name, tracks, playlistIndex) {
         const container = document.createElement('div');
-        container.className = 'playlist';
+        container.className = 'playlist-container';
 
-        const header = document.createElement('h2');
-        header.textContent = playlist.playlist;
-        container.appendChild(header);
+        const title = document.createElement('h2');
+        title.className = 'playlist-title';
+        title.textContent = name;
+        container.appendChild(title);
 
-        const waveContainer = document.createElement('div');
-        waveContainer.className = 'waveform-container';
-        waveContainer.id = `waveform-${playlistIndex}`;
-        container.appendChild(waveContainer);
+        const waveformContainer = document.createElement('div');
+        waveformContainer.className = 'waveform-container';
+        container.appendChild(waveformContainer);
 
-        playlist.tracks.forEach((track, index) => {
-          const trackEl = document.createElement('div');
-          trackEl.className = 'track';
+        const loadingProgressBar = document.createElement('div');
+        loadingProgressBar.className = 'loading-progress-bar';
+        waveformContainer.appendChild(loadingProgressBar);
 
-          const btn = document.createElement('div');
-          btn.innerHTML = playSVG;
+        const trackList = document.createElement('ul');
+        trackList.className = 'space-y-2';
+        container.appendChild(trackList);
 
-          const name = document.createElement('span');
-          name.textContent = track.title;
+        const wavesurfer = WaveSurfer.create({
+          container: waveformContainer,
+          waveColor: 'white',
+          progressColor: 'orange',
+          height: 150,
+          responsive: true,
+          hideScrollbar: true,
+          cursorWidth: 2,
+          cursorColor: 'orange'
+        });
 
-          trackEl.appendChild(btn);
-          trackEl.appendChild(name);
-          container.appendChild(trackEl);
+        allWaveSurfers.push(wavesurfer);
 
-          trackEl.addEventListener('click', async () => {
-            if (currentTrackEl) currentTrackEl.classList.remove('active');
-            if (currentPlayBtn) currentPlayBtn.innerHTML = playSVG;
-            trackEl.classList.add('active');
-            currentTrackEl = trackEl;
-            currentPlayBtn = btn;
+        let currentTrackIndex = 0;
+        let isPlaying = false;
 
-            if (wavesurfer) wavesurfer.destroy();
+        function pauseGlobal() {
+          if(globalCurrent.wavesurfer && globalCurrent.wavesurfer !== wavesurfer) {
+            globalCurrent.wavesurfer.pause();
+            const prevPlaylist = document.querySelectorAll('.playlist-container')[globalCurrent.playlistIndex];
+            if(prevPlaylist){
+              prevPlaylist.querySelectorAll('.track-item').forEach((el) => {
+                el.classList.remove('active');
+              });
+            }
+            globalCurrent = { wavesurfer: null, playlistIndex: null, trackIndex: null };
+          }
+        }
 
-            wavesurfer = WaveSurfer.create({
-              container: `#waveform-${playlistIndex}`,
-              waveColor: 'white',
-              progressColor: 'orange',
-              height: 100,
+        function loadTrack(index, autoplay = true) {
+          if (index < 0 || index >= tracks.length) return;
+          pauseGlobal();
+          currentTrackIndex = index;
+          loadingProgressBar.style.width = '0%';
+          loadingProgressBar.style.display = 'block';
+          waveformContainer.style.opacity = '0.3';
+          wavesurfer.load(tracks[index].file);
+
+          if (!autoplay) {
+            wavesurfer.once('ready', () => {
+              loadingProgressBar.style.display = 'none';
+              waveformContainer.style.opacity = '1';
+              isPlaying = false;
+              updatePlayPauseButton();
+              updateActiveTrack();
+              globalCurrent = { wavesurfer, playlistIndex, trackIndex: currentTrackIndex };
             });
+          }
+        }
 
-            wavesurfer.load(track.file);
+        wavesurfer.on('loading', (percent) => {
+          loadingProgressBar.style.width = percent + '%';
+        });
 
-            wavesurfer.on('ready', () => {
-              wavesurfer.play();
-              btn.innerHTML = pauseSVG;
-            });
+        wavesurfer.on('ready', () => {
+          if (isPlaying) return; // Don't autoplay if paused by loadTrack(false)
+          loadingProgressBar.style.width = '100%';
+          setTimeout(() => {
+            loadingProgressBar.style.display = 'none';
+            waveformContainer.style.opacity = '1';
+            wavesurfer.play();
+            isPlaying = true;
+            updatePlayPauseButton();
+            updateActiveTrack();
+            globalCurrent = { wavesurfer, playlistIndex, trackIndex: currentTrackIndex };
+          }, 200);
+        });
 
-            wavesurfer.on('finish', () => {
-              btn.innerHTML = playSVG;
-            });
+        wavesurfer.on('pause', () => {
+          isPlaying = false;
+          updatePlayPauseButton();
+        });
 
-            btn.onclick = (e) => {
-              e.stopPropagation();
-              if (wavesurfer.isPlaying()) {
-                wavesurfer.pause();
-                btn.innerHTML = playSVG;
-              } else {
-                wavesurfer.play();
-                btn.innerHTML = pauseSVG;
-              }
-            };
-          });
+        wavesurfer.on('play', () => {
+          isPlaying = true;
+          updatePlayPauseButton();
+        });
 
-          // Auto preload the first track of each playlist
-          if (index === 0) {
-            setTimeout(() => trackEl.click(), 0);
+        wavesurfer.on('finish', () => {
+          const nextIndex = currentTrackIndex + 1;
+          if (nextIndex < tracks.length) {
+            loadTrack(nextIndex);
+          } else {
+            isPlaying = false;
+            updatePlayPauseButton();
+            updateActiveTrack();
           }
         });
 
-        app.appendChild(container);
-      });
-    }
+        function updateActiveTrack() {
+          trackList.querySelectorAll('li').forEach((el, i) => {
+            el.classList.toggle('active', i === currentTrackIndex);
+          });
+        }
 
-    init();
+        function updatePlayPauseButton() {
+          trackList.querySelectorAll('.play-pause-button').forEach((btn, idx) => {
+            btn.innerHTML = createPlayPauseSVG(isPlaying && idx === currentTrackIndex);
+          });
+        }
+
+        tracks.forEach((track, index) => {
+          const listItem = document.createElement('li');
+          listItem.className = 'track-item';
+
+          const playPauseButton = document.createElement('div');
+          playPauseButton.className = 'play-pause-button';
+          playPauseButton.innerHTML = createPlayPauseSVG(false);
+          listItem.appendChild(playPauseButton);
+
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'track-title';
+          nameSpan.textContent = track.title;
+          listItem.appendChild(nameSpan);
+
+          const durationSpan = document.createElement('span');
+          durationSpan.className = 'duration';
+          durationSpan.textContent = '--:--';
+          listItem.appendChild(durationSpan);
+
+          const audio = new Audio(track.file);
+          audio.addEventListener('loadedmetadata', () => {
+            durationSpan.textContent = formatTime(audio.duration);
+          });
+
+          function onTrackClick() {
+            if (currentTrackIndex === index && isPlaying) {
+              wavesurfer.pause();
+              isPlaying = false;
+            } else {
+              loadTrack(index);
+            }
+            updatePlayPauseButton();
+            updateActiveTrack();
+          }
+
+          playPauseButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onTrackClick();
+          });
+          listItem.addEventListener('click', onTrackClick);
+
+          trackList.appendChild(listItem);
+        });
+
+        if (tracks.length > 0) {
+          loadTrack(0, false); // preload first track but no autoplay or active play state
+        }
+
+        return container;
+      }
+
+      async function init() {
+        const files = await loadFiles();
+        const playlistsContainer = document.getElementById('playlists');
+
+        files.forEach((playlistObj, i) => {
+          const playlistName = playlistObj.playlist;
+          const tracks = playlistObj.tracks;
+
+          const playlistElement = createPlaylist(playlistName, tracks, i);
+          playlistsContainer.appendChild(playlistElement);
+        });
+      }
+
+      window.addEventListener('load', init);
+    })();
   </script>
 </body>
 </html>
