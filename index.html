@@ -52,24 +52,7 @@
       margin-bottom: 1rem;
       background-color: #2a1a26;
       border-radius: 0.5rem;
-    }
-    /* (6) Loading spinner in waveform container */
-    .loading-spinner {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 24px;
-      height: 24px;
-      margin: -12px 0 0 -12px;
-      border: 3px solid #ccc;
-      border-top-color: orange;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      display: none; /* hidden by default */
-      z-index: 10;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+      transition: opacity 0.3s ease;
     }
     /* (7) Play/Pause button styles matching SoundCloud style */
     .play-pause-button {
@@ -141,9 +124,17 @@
       waveformContainer.className = 'waveform-container';
       container.appendChild(waveformContainer);
 
-      const loadingSpinner = document.createElement('div');
-      loadingSpinner.className = 'loading-spinner';
-      waveformContainer.appendChild(loadingSpinner);
+      // (6) Loading progress bar
+      const loadingProgressBar = document.createElement('div');
+      loadingProgressBar.style.position = 'absolute';
+      loadingProgressBar.style.bottom = '0';
+      loadingProgressBar.style.left = '0';
+      loadingProgressBar.style.height = '6px';
+      loadingProgressBar.style.width = '0%';
+      loadingProgressBar.style.backgroundColor = 'orange';
+      loadingProgressBar.style.borderRadius = '0 0 0.5rem 0.5rem';
+      loadingProgressBar.style.transition = 'width 0.2s ease';
+      waveformContainer.appendChild(loadingProgressBar);
 
       const playPauseButton = document.createElement('div');
       playPauseButton.className = 'play-pause-button';
@@ -168,20 +159,26 @@
       function loadTrack(index) {
         if (index < 0 || index >= tracks.length) return;
         currentTrackIndex = index;
-        loadingSpinner.style.display = 'block';
+        loadingProgressBar.style.width = '0%';
+        loadingProgressBar.style.display = 'block';
+        waveformContainer.style.opacity = '0.3'; // dim waveform during loading
         wavesurfer.load(tracks[index].file);
       }
 
-      wavesurfer.on('ready', () => {
-        loadingSpinner.style.display = 'none';
-        wavesurfer.play();
-        isPlaying = true;
-        updatePlayPauseButton();
-        updateActiveTrack();
+      wavesurfer.on('loading', (percent) => {
+        loadingProgressBar.style.width = percent + '%';
       });
 
-      wavesurfer.on('loading', (percent) => {
-        loadingSpinner.style.display = 'block';
+      wavesurfer.on('ready', () => {
+        loadingProgressBar.style.width = '100%';
+        setTimeout(() => {
+          loadingProgressBar.style.display = 'none';
+          waveformContainer.style.opacity = '1'; // restore opacity
+          wavesurfer.play();
+          isPlaying = true;
+          updatePlayPauseButton();
+          updateActiveTrack();
+        }, 200);
       });
 
       wavesurfer.on('finish', () => {
