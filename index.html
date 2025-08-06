@@ -265,26 +265,33 @@
       const activeContainer = document.getElementById('active-playlist');
       const otherContainer = document.getElementById('other-playlists');
 
-      files.forEach((playlist, index) => {
-        const link = document.createElement('div');
-        link.className = 'playlist-link';
-        link.textContent = playlist.playlist;
-        link.addEventListener('click', () => {
-          activeContainer.innerHTML = '';
-          otherContainer.innerHTML = '';
+files.forEach((playlist, index) => {
+  const button = document.createElement('div');
+  button.className = 'track-item active flex-nowrap overflow-hidden';
+  button.style.cursor = 'pointer';
 
-          const active = createPlaylist(playlist.playlist, playlist.tracks);
-          activeContainer.appendChild(active);
+  const nameSpan = document.createElement('span');
+  nameSpan.textContent = playlist.playlist;
+  nameSpan.className = 'truncate w-full';
+  button.appendChild(nameSpan);
 
-          files.forEach((p, i) => {
-            if (i !== index) {
-              const other = createPlaylist(p.playlist, p.tracks);
-              otherContainer.appendChild(other);
-            }
-          });
-        });
-        selector.appendChild(link);
-      });
+  button.addEventListener('click', () => {
+    activeContainer.innerHTML = '';
+    otherContainer.innerHTML = '';
+
+    const active = createPlaylist(playlist.playlist, playlist.tracks);
+    activeContainer.appendChild(active);
+
+    files.forEach((p, i) => {
+      if (i !== index) {
+        const other = createPlaylist(p.playlist, p.tracks);
+        otherContainer.appendChild(other);
+      }
+    });
+  });
+
+  selector.appendChild(button);
+});
     }
 
     init();
