@@ -5,268 +5,153 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Audio Player</title>
   <script src="https://unpkg.com/wavesurfer.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <style>
-    body {
-      background-color: #111;
-      color: white;
-      font-family: sans-serif;
-      padding: 2rem;
-    }
-    .playlist-title {
-      font-size: 1.25rem;
-      font-weight: bold;
-    }
-    .track-item {
-      cursor: pointer;
-      padding: 0.5rem;
-      border-radius: 0.5rem;
-      display: flex;
-      justify-content: space-between;
-    }
-    .track-item:hover {
-      background-color: #333;
-    }
-    .track-item.active {
-      background-color: orange;
-      color: black;
-    }
-    .waveform-container {
-      margin-bottom: 1rem;
-      border-radius: 0.5rem;
-      overflow: hidden;
-      position: relative;
-    }
-    .play-pause-button {
-      cursor: pointer;
-      width: 2rem;
-      height: 2rem;
-    }
-    .playlist-link {
-      cursor: pointer;
-      padding: 0.5rem;
-      border: 1px solid white;
-      margin-bottom: 0.5rem;
-      border-radius: 0.5rem;
-      text-align: center;
-    }
-    .playlist-link:hover {
-      background-color: #333;
-    }
-  </style>
+  <script src="https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/plugins/region.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h1 class="text-2xl font-bold mb-6">Audio Player</h1>
-
-  <div id="playlist-selector" class="mb-6 space-y-2"></div>
-  <div id="playlist-player" class="mb-6"></div>
-  <div id="other-playlists" class="mt-6 space-y-2"></div>
+<body class="bg-black text-white font-sans p-4">
+  <div id="main-container" class="max-w-4xl mx-auto space-y-6"></div>
 
   <script>
-    const files = {
-      "Playlist A": [
-        { "title": "Track 1", "file": "https://sprightly-donut-80b301.netlify.app/UOUS_190725_1646_v7.wav" },
-        { "title": "Track 2", "file": "https://sprightly-donut-80b301.netlify.app/UOUS_190725_1650_v7.wav" }
-      ],
-      "Playlist B": [
-        { "title": "Track 3", "file": "https://sprightly-donut-80b301.netlify.app/UOUS_190725_1655_v7.wav" }
-      ]
-    };
+    const mainContainer = document.getElementById('main-container');
+    let activePlayerContainer = null;
+    let wavesurfer = null;
+    let currentPlaylist = null;
+    let currentTrackIndex = 0;
 
-    const selectorDiv = document.getElementById('playlist-selector');
-    const playerDiv = document.getElementById('playlist-player');
-    const othersDiv = document.getElementById('other-playlists');
+    fetch('files.json')
+      .then(response => response.json())
+      .then(data => {
+        renderPlaylistSelector(data);
+      });
 
-    function createPlaylist(name, tracks) {
-      const container = document.createElement('div');
-      container.className = 'playlist-container';
+    function renderPlaylistSelector(playlists) {
+      mainContainer.innerHTML = '';
+
+      const playlistList = document.createElement('div');
+      playlistList.className = 'space-y-2';
+
+      playlists.forEach((playlistData, index) => {
+        const btn = document.createElement('button');
+        btn.textContent = playlistData.playlist;
+        btn.className =
+          'w-full text-left text-lg font-semibold border border-white p-4 hover:bg-white hover:text-black transition';
+        btn.addEventListener('click', () => {
+          loadPlaylistView(playlistData, playlists);
+        });
+        playlistList.appendChild(btn);
+      });
+
+      mainContainer.appendChild(playlistList);
+    }
+
+    function loadPlaylistView(selectedPlaylist, allPlaylists) {
+      mainContainer.innerHTML = ''; // clear current view
+      currentPlaylist = selectedPlaylist;
+      currentTrackIndex = 0;
+
+      // Primary Playlist Container
+      const playerSection = document.createElement('div');
+      playerSection.className = 'space-y-4';
 
       const header = document.createElement('div');
-      header.className = 'flex justify-between items-center mb-4';
+      header.className = 'flex justify-between items-center border-b border-white pb-2';
+      header.innerHTML = `
+        <h2 class="text-2xl font-bold">${selectedPlaylist.playlist}</h2>
+        <button id="playPauseBtn" class="border border-white px-3 py-1 rounded hover:bg-white hover:text-black transition">Play</button>
+      `;
 
-      const title = document.createElement('h2');
-      title.className = 'playlist-title m-0';
-      title.textContent = name;
-      header.appendChild(title);
-
-      const playPauseButton = document.createElement('div');
-      playPauseButton.className = 'play-pause-button';
-      playPauseButton.innerHTML = createPlayPauseSVG(false);
-      header.appendChild(playPauseButton);
-
-      container.appendChild(header);
-
-      const waveformContainer = document.createElement('div');
-      waveformContainer.className = 'waveform-container';
-      container.appendChild(waveformContainer);
-
-      const loadingProgressBar = document.createElement('div');
-      loadingProgressBar.style.position = 'absolute';
-      loadingProgressBar.style.bottom = '0';
-      loadingProgressBar.style.left = '0';
-      loadingProgressBar.style.height = '6px';
-      loadingProgressBar.style.width = '0%';
-      loadingProgressBar.style.backgroundColor = 'orange';
-      loadingProgressBar.style.borderRadius = '0 0 0.5rem 0.5rem';
-      loadingProgressBar.style.transition = 'width 0.2s ease';
-      waveformContainer.appendChild(loadingProgressBar);
+      const waveform = document.createElement('div');
+      waveform.id = 'waveform';
+      waveform.className = 'w-full h-24 bg-gray-800';
 
       const trackList = document.createElement('ul');
-      trackList.className = 'space-y-2';
-      container.appendChild(trackList);
+      trackList.id = 'trackList';
+      trackList.className = 'space-y-1';
 
-      const wavesurfer = WaveSurfer.create({
-        container: waveformContainer,
-        waveColor: 'white',
-        progressColor: 'orange',
-        height: 64,
-        responsive: true
+      selectedPlaylist.tracks.forEach((track, index) => {
+        const li = document.createElement('li');
+        li.textContent = track.title;
+        li.className =
+          'cursor-pointer px-2 py-1 hover:bg-white hover:text-black transition' +
+          (index === 0 ? ' font-semibold' : '');
+        li.addEventListener('click', () => {
+          currentTrackIndex = index;
+          loadTrack(track.file);
+          highlightCurrentTrack(index);
+        });
+        trackList.appendChild(li);
       });
 
-      let currentTrackIndex = 0;
-      let isPlaying = false;
+      playerSection.appendChild(header);
+      playerSection.appendChild(waveform);
+      playerSection.appendChild(trackList);
+      mainContainer.appendChild(playerSection);
 
-      function loadTrack(index) {
-        if (index < 0 || index >= tracks.length) return;
-        currentTrackIndex = index;
-        loadingProgressBar.style.width = '0%';
-        loadingProgressBar.style.display = 'block';
-        waveformContainer.style.opacity = '0.3';
-        wavesurfer.load(tracks[index].file);
+      // Remaining playlists list
+      const remaining = allPlaylists.filter(p => p.playlist !== selectedPlaylist.playlist);
+      if (remaining.length > 0) {
+        const remainingHeader = document.createElement('h3');
+        remainingHeader.className = 'text-lg font-bold pt-6';
+        remainingHeader.textContent = 'Other Playlists';
+        mainContainer.appendChild(remainingHeader);
+
+        remaining.forEach(playlist => {
+          const btn = document.createElement('button');
+          btn.textContent = playlist.playlist;
+          btn.className =
+            'w-full text-left text-lg font-semibold border border-white p-4 hover:bg-white hover:text-black transition mt-2';
+          btn.addEventListener('click', () => {
+            loadPlaylistView(playlist, allPlaylists);
+          });
+          mainContainer.appendChild(btn);
+        });
       }
 
-      wavesurfer.on('loading', (percent) => {
-        loadingProgressBar.style.width = percent + '%';
-      });
+      setupWaveSurfer();
+      loadTrack(selectedPlaylist.tracks[0].file);
 
-      wavesurfer.on('ready', () => {
-        loadingProgressBar.style.width = '100%';
-        setTimeout(() => {
-          loadingProgressBar.style.display = 'none';
-          waveformContainer.style.opacity = '1';
-          wavesurfer.play();
-          isPlaying = true;
-          updatePlayPauseButton();
-          updateActiveTrack();
-        }, 200);
+      document.getElementById('playPauseBtn').addEventListener('click', () => {
+        if (wavesurfer) {
+          if (wavesurfer.isPlaying()) {
+            wavesurfer.pause();
+          } else {
+            wavesurfer.play();
+          }
+        }
+      });
+    }
+
+    function setupWaveSurfer() {
+      if (wavesurfer) {
+        wavesurfer.destroy();
+      }
+      wavesurfer = WaveSurfer.create({
+        container: '#waveform',
+        waveColor: '#999',
+        progressColor: '#fff',
+        height: 80,
       });
 
       wavesurfer.on('finish', () => {
         const nextIndex = currentTrackIndex + 1;
-        if (nextIndex < tracks.length) {
-          loadTrack(nextIndex);
-        } else {
-          isPlaying = false;
-          updatePlayPauseButton();
-          updateActiveTrack();
-        }
-      });
-
-      function updateActiveTrack() {
-        trackList.querySelectorAll('li').forEach((el, i) => {
-          el.classList.toggle('active', i === currentTrackIndex);
-        });
-      }
-
-      function updatePlayPauseButton() {
-        playPauseButton.innerHTML = createPlayPauseSVG(isPlaying);
-      }
-
-      playPauseButton.addEventListener('click', () => {
-        if (isPlaying) {
-          wavesurfer.pause();
-          isPlaying = false;
-        } else {
-          wavesurfer.play();
-          isPlaying = true;
-        }
-        updatePlayPauseButton();
-      });
-
-      tracks.forEach((track, index) => {
-        const listItem = document.createElement('li');
-        listItem.className = 'track-item';
-
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = track.title;
-        listItem.appendChild(nameSpan);
-
-        const durationSpan = document.createElement('span');
-        durationSpan.className = 'duration';
-        durationSpan.textContent = '--:--';
-        listItem.appendChild(durationSpan);
-
-        const audio = new Audio(track.file);
-        audio.addEventListener('loadedmetadata', () => {
-          durationSpan.textContent = formatTime(audio.duration);
-        });
-
-        listItem.addEventListener('click', () => {
-          if (currentTrackIndex === index && isPlaying) {
-            wavesurfer.pause();
-            isPlaying = false;
-          } else {
-            loadTrack(index);
-          }
-          updatePlayPauseButton();
-          updateActiveTrack();
-        });
-
-        trackList.appendChild(listItem);
-      });
-
-      if (tracks.length > 0) {
-        loadTrack(0);
-      }
-
-      return container;
-    }
-
-    function createPlayPauseSVG(isPlaying) {
-      return isPlaying
-        ? `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6" />
-           </svg>`
-        : `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-6.518-3.759A1 1 0 007 8.059v7.882a1 1 0 001.234.97l6.518-1.541a1 1 0 00.748-.97V12.14a1 1 0 00-.748-.972z" />
-           </svg>`;
-    }
-
-    function formatTime(seconds) {
-      const minutes = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
-    }
-
-    function renderPlaylist(name) {
-      playerDiv.innerHTML = '';
-      const playlist = createPlaylist(name, files[name]);
-      playerDiv.appendChild(playlist);
-
-      // render other playlists
-      othersDiv.innerHTML = '';
-      Object.keys(files).forEach(otherName => {
-        if (otherName !== name) {
-          const div = document.createElement('div');
-          div.className = 'playlist-link';
-          div.textContent = otherName;
-          div.addEventListener('click', () => renderPlaylist(otherName));
-          othersDiv.appendChild(div);
+        if (currentPlaylist && nextIndex < currentPlaylist.tracks.length) {
+          currentTrackIndex = nextIndex;
+          loadTrack(currentPlaylist.tracks[currentTrackIndex].file);
+          highlightCurrentTrack(currentTrackIndex);
         }
       });
     }
 
-    // initial list of playlists
-    Object.keys(files).forEach(name => {
-      const div = document.createElement('div');
-      div.className = 'playlist-link';
-      div.textContent = name;
-      div.addEventListener('click', () => {
-        selectorDiv.innerHTML = '';
-        renderPlaylist(name);
+    function loadTrack(filePath) {
+      wavesurfer.load(filePath);
+    }
+
+    function highlightCurrentTrack(index) {
+      const listItems = document.querySelectorAll('#trackList li');
+      listItems.forEach((li, i) => {
+        li.classList.toggle('font-semibold', i === index);
       });
-      selectorDiv.appendChild(div);
-    });
+    }
   </script>
 </body>
 </html>
