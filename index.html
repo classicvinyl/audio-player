@@ -81,24 +81,6 @@
     .playlist-link:hover {
       text-decoration: underline;
     }
-    /* Spinner styles */
-    .spinner {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 40px;
-      height: 40px;
-      margin: -20px 0 0 -20px;
-      border: 4px solid rgba(255, 165, 0, 0.3); /* orange, transparent */
-      border-top-color: orange;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      z-index: 10;
-      display: none; /* hidden by default */
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
   </style>
 </head>
 <body>
@@ -155,11 +137,6 @@
       waveformContainer.className = 'waveform-container';
       container.appendChild(waveformContainer);
 
-      // Add spinner element here
-      const spinner = document.createElement('div');
-      spinner.className = 'spinner';
-      waveformContainer.appendChild(spinner);
-
       const loadingProgressBar = document.createElement('div');
       loadingProgressBar.style.position = 'absolute';
       loadingProgressBar.style.bottom = '0';
@@ -186,8 +163,7 @@
       let currentTrackIndex = -1;
       let isPlaying = false;
 
-      // --- ONLY THIS FUNCTION REPLACED BELOW ---
-
+      // Only updated loadTrack function here
       function loadTrack(index, attempt = 1) {
         if (index < 0 || index >= tracks.length) return;
         currentTrackIndex = index;
@@ -196,23 +172,9 @@
         loadingProgressBar.style.display = 'block';
         waveformContainer.style.opacity = '0.3';
 
-        spinner.style.display = 'block';  // show spinner
-
-        wavesurfer.empty();  // clear prior waveform
-
         let didLoad = false;
         const MAX_RETRIES = 3;
         const TIMEOUT = 7000;
-
-        let lastProgress = 0;
-        let stallTimer;
-
-        function resetStallTimer() {
-          if (stallTimer) clearTimeout(stallTimer);
-          stallTimer = setTimeout(() => {
-            if (!didLoad) retryLoad();
-          }, TIMEOUT);
-        }
 
         const timeout = setTimeout(() => {
           if (!didLoad) retryLoad();
@@ -220,26 +182,22 @@
 
         function retryLoad() {
           clearTimeout(timeout);
-          clearTimeout(stallTimer);
           if (attempt < MAX_RETRIES) {
             loadTrack(index, attempt + 1);
           } else {
             loadingProgressBar.style.display = 'none';
             waveformContainer.style.opacity = '1';
-            spinner.style.display = 'none';
-            // Optionally, you could mark the track as failed visually here.
+            // Optionally mark failure in UI here if needed
           }
         }
 
         wavesurfer.once('ready', () => {
           didLoad = true;
           clearTimeout(timeout);
-          clearTimeout(stallTimer);
           loadingProgressBar.style.width = '100%';
           setTimeout(() => {
             loadingProgressBar.style.display = 'none';
             waveformContainer.style.opacity = '1';
-            spinner.style.display = 'none';  // hide spinner
             wavesurfer.play();
             isPlaying = true;
             updatePlayPauseButton();
@@ -250,17 +208,11 @@
         wavesurfer.once('error', retryLoad);
 
         wavesurfer.on('loading', (percent) => {
-          if (percent > lastProgress) {
-            lastProgress = percent;
-            resetStallTimer();
-          }
           loadingProgressBar.style.width = percent + '%';
         });
 
         wavesurfer.load(tracks[index].file);
       }
-
-      // --- END REPLACED FUNCTION ---
 
       wavesurfer.on('finish', () => {
         const nextIndex = currentTrackIndex + 1;
