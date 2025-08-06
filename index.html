@@ -117,12 +117,19 @@
       }
     }
 
-    function createPlaylist(name, tracks) {
-      const container = document.createElement('div');
-      container.className = 'playlist-container';
+      function createPlaylist(name, tracks) {
+        const container = document.createElement('div');
+        container.className = 'playlist-container';
 
-      const header = document.createElement('div');
-      header.className = 'flex flex-wrap justify-between items-center gap-2 mb-4';
+        // ✅ SORT TRACKS BY NUMBER IN TITLE
+        tracks.sort((a, b) => {
+          const numA = parseInt(a.title.match(/\d+/)?.[0]) || 0;
+          const numB = parseInt(b.title.match(/\d+/)?.[0]) || 0;
+          return numA - numB;
+        });
+
+        const header = document.createElement('div');
+        header.className = 'flex flex-wrap justify-between items-center gap-2 mb-4';
 
       const title = document.createElement('h2');
       title.className = 'playlist-title m-0';
