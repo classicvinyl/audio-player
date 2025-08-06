@@ -11,60 +11,71 @@
       background-color: #111;
       color: white;
       font-family: sans-serif;
+      padding: 2rem;
     }
     .playlist-title {
       font-size: 1.25rem;
       font-weight: bold;
     }
     .track-item {
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
       display: flex;
       justify-content: space-between;
-      padding: 0.25rem 0.5rem;
-      border-radius: 0.25rem;
-      cursor: pointer;
     }
     .track-item:hover {
-      background-color: #222;
-    }
-    .track-item.active {
       background-color: #333;
     }
-    .play-pause-button {
-      width: 32px;
-      height: 32px;
-      cursor: pointer;
+    .track-item.active {
+      background-color: orange;
+      color: black;
     }
     .waveform-container {
-      margin-bottom: 0.5rem;
+      margin-bottom: 1rem;
       border-radius: 0.5rem;
       overflow: hidden;
-      background: #222;
       position: relative;
+    }
+    .play-pause-button {
+      cursor: pointer;
+      width: 2rem;
+      height: 2rem;
+    }
+    .playlist-link {
+      cursor: pointer;
+      padding: 0.5rem;
+      border: 1px solid white;
+      margin-bottom: 0.5rem;
+      border-radius: 0.5rem;
+      text-align: center;
+    }
+    .playlist-link:hover {
+      background-color: #333;
     }
   </style>
 </head>
-<body class="p-4">
-  <div id="playlist-buttons" class="mb-6 space-y-2"></div>
-  <div id="main-player" class="mb-8"></div>
-  <div id="other-playlists" class="space-y-6"></div>
+<body>
+  <h1 class="text-2xl font-bold mb-6">Audio Player</h1>
+
+  <div id="playlist-selector" class="mb-6 space-y-2"></div>
+  <div id="playlist-player" class="mb-6"></div>
+  <div id="other-playlists" class="mt-6 space-y-2"></div>
 
   <script>
-    async function fetchPlaylists() {
-      const response = await fetch('files.json');
-      return await response.json();
-    }
+    const files = {
+      "Playlist A": [
+        { "title": "Track 1", "file": "https://sprightly-donut-80b301.netlify.app/UOUS_190725_1646_v7.wav" },
+        { "title": "Track 2", "file": "https://sprightly-donut-80b301.netlify.app/UOUS_190725_1650_v7.wav" }
+      ],
+      "Playlist B": [
+        { "title": "Track 3", "file": "https://sprightly-donut-80b301.netlify.app/UOUS_190725_1655_v7.wav" }
+      ]
+    };
 
-    function createPlayPauseSVG(isPlaying) {
-      return isPlaying
-        ? `<svg fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>`
-        : `<svg fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
-    }
-
-    function formatTime(seconds) {
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
-      return `${mins}:${secs}`;
-    }
+    const selectorDiv = document.getElementById('playlist-selector');
+    const playerDiv = document.getElementById('playlist-player');
+    const othersDiv = document.getElementById('other-playlists');
 
     function createPlaylist(name, tracks) {
       const container = document.createElement('div');
@@ -211,41 +222,50 @@
       return container;
     }
 
-    fetchPlaylists().then(data => {
-      const playlistButtons = document.getElementById('playlist-buttons');
-      const mainPlayer = document.getElementById('main-player');
-      const otherPlaylists = document.getElementById('other-playlists');
+    function createPlayPauseSVG(isPlaying) {
+      return isPlaying
+        ? `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6" />
+           </svg>`
+        : `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-6.518-3.759A1 1 0 007 8.059v7.882a1 1 0 001.234.97l6.518-1.541a1 1 0 00.748-.97V12.14a1 1 0 00-.748-.972z" />
+           </svg>`;
+    }
 
-      const playlistNames = Object.keys(data);
-      let current = null;
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+    }
 
-      playlistNames.forEach((name, index) => {
-        const button = document.createElement('button');
-        button.className = 'block w-full text-left px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded';
-        button.textContent = name;
-        playlistButtons.appendChild(button);
+    function renderPlaylist(name) {
+      playerDiv.innerHTML = '';
+      const playlist = createPlaylist(name, files[name]);
+      playerDiv.appendChild(playlist);
 
-        button.addEventListener('click', () => {
-          // Clear main player
-          mainPlayer.innerHTML = '';
-          const main = createPlaylist(name, data[name]);
-          mainPlayer.appendChild(main);
-
-          // Clear other playlists
-          otherPlaylists.innerHTML = '';
-          playlistNames.forEach((otherName, i) => {
-            if (otherName !== name) {
-              const p = createPlaylist(otherName, data[otherName]);
-              otherPlaylists.appendChild(p);
-            }
-          });
-        });
-
-        // Auto-load first playlist
-        if (index === 0) {
-          button.click();
+      // render other playlists
+      othersDiv.innerHTML = '';
+      Object.keys(files).forEach(otherName => {
+        if (otherName !== name) {
+          const div = document.createElement('div');
+          div.className = 'playlist-link';
+          div.textContent = otherName;
+          div.addEventListener('click', () => renderPlaylist(otherName));
+          othersDiv.appendChild(div);
         }
       });
+    }
+
+    // initial list of playlists
+    Object.keys(files).forEach(name => {
+      const div = document.createElement('div');
+      div.className = 'playlist-link';
+      div.textContent = name;
+      div.addEventListener('click', () => {
+        selectorDiv.innerHTML = '';
+        renderPlaylist(name);
+      });
+      selectorDiv.appendChild(div);
     });
   </script>
 </body>
