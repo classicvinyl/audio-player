@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Audio Player</title>
   <script src="https://unpkg.com/wavesurfer.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/wavesurfer.js@7/dist/plugins/region.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-black text-white font-sans p-4">
@@ -13,31 +12,24 @@
 
   <script>
     const mainContainer = document.getElementById('main-container');
-    let activePlayerContainer = null;
     let wavesurfer = null;
     let currentPlaylist = null;
     let currentTrackIndex = 0;
 
     fetch('files.json')
       .then(response => response.json())
-      .then(data => {
-        renderPlaylistSelector(data);
-      });
+      .then(data => renderPlaylistSelector(data));
 
     function renderPlaylistSelector(playlists) {
       mainContainer.innerHTML = '';
-
       const playlistList = document.createElement('div');
       playlistList.className = 'space-y-2';
 
-      playlists.forEach((playlistData, index) => {
+      playlists.forEach((playlistData) => {
         const btn = document.createElement('button');
         btn.textContent = playlistData.playlist;
-        btn.className =
-          'w-full text-left text-lg font-semibold border border-white p-4 hover:bg-white hover:text-black transition';
-        btn.addEventListener('click', () => {
-          loadPlaylistView(playlistData, playlists);
-        });
+        btn.className = 'w-full text-left text-lg font-semibold border border-white p-4 hover:bg-white hover:text-black transition';
+        btn.addEventListener('click', () => loadPlaylistView(playlistData, playlists));
         playlistList.appendChild(btn);
       });
 
@@ -45,11 +37,10 @@
     }
 
     function loadPlaylistView(selectedPlaylist, allPlaylists) {
-      mainContainer.innerHTML = ''; // clear current view
+      mainContainer.innerHTML = '';
       currentPlaylist = selectedPlaylist;
       currentTrackIndex = 0;
 
-      // Primary Playlist Container
       const playerSection = document.createElement('div');
       playerSection.className = 'space-y-4';
 
@@ -64,6 +55,10 @@
       waveform.id = 'waveform';
       waveform.className = 'w-full h-24 bg-gray-800';
 
+      const progress = document.createElement('div');
+      progress.id = 'progress';
+      progress.className = 'text-sm italic';
+
       const trackList = document.createElement('ul');
       trackList.id = 'trackList';
       trackList.className = 'space-y-1';
@@ -71,9 +66,7 @@
       selectedPlaylist.tracks.forEach((track, index) => {
         const li = document.createElement('li');
         li.textContent = track.title;
-        li.className =
-          'cursor-pointer px-2 py-1 hover:bg-white hover:text-black transition' +
-          (index === 0 ? ' font-semibold' : '');
+        li.className = 'cursor-pointer px-2 py-1 hover:bg-white hover:text-black transition' + (index === 0 ? ' font-semibold' : '');
         li.addEventListener('click', () => {
           currentTrackIndex = index;
           loadTrack(track.file);
@@ -84,10 +77,10 @@
 
       playerSection.appendChild(header);
       playerSection.appendChild(waveform);
+      playerSection.appendChild(progress);
       playerSection.appendChild(trackList);
       mainContainer.appendChild(playerSection);
 
-      // Remaining playlists list
       const remaining = allPlaylists.filter(p => p.playlist !== selectedPlaylist.playlist);
       if (remaining.length > 0) {
         const remainingHeader = document.createElement('h3');
@@ -98,11 +91,8 @@
         remaining.forEach(playlist => {
           const btn = document.createElement('button');
           btn.textContent = playlist.playlist;
-          btn.className =
-            'w-full text-left text-lg font-semibold border border-white p-4 hover:bg-white hover:text-black transition mt-2';
-          btn.addEventListener('click', () => {
-            loadPlaylistView(playlist, allPlaylists);
-          });
+          btn.className = 'w-full text-left text-lg font-semibold border border-white p-4 hover:bg-white hover:text-black transition mt-2';
+          btn.addEventListener('click', () => loadPlaylistView(playlist, allPlaylists));
           mainContainer.appendChild(btn);
         });
       }
@@ -125,11 +115,22 @@
       if (wavesurfer) {
         wavesurfer.destroy();
       }
+
       wavesurfer = WaveSurfer.create({
         container: '#waveform',
         waveColor: '#999',
         progressColor: '#fff',
         height: 80,
+      });
+
+      wavesurfer.on('loading', percent => {
+        const progress = document.getElementById('progress');
+        if (progress) progress.textContent = `Loading: ${percent.toFixed(0)}%`;
+      });
+
+      wavesurfer.on('ready', () => {
+        const progress = document.getElementById('progress');
+        if (progress) progress.textContent = '';
       });
 
       wavesurfer.on('finish', () => {
