@@ -81,6 +81,22 @@
     .playlist-link:hover {
       text-decoration: underline;
     }
+    /* Spinner styles */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .loading-spinner {
+      display: inline-block;
+      border: 2px solid white;
+      border-top: 2px solid orange;
+      border-radius: 50%;
+      width: 14px;
+      height: 14px;
+      animation: spin 1s linear infinite;
+      margin-left: 0.5rem;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -106,6 +122,14 @@
       return isPlaying
         ? `<svg class="pause-icon" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>`
         : `<svg class="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>`;
+    }
+
+    // Spinner creation helper
+    function createSpinner() {
+      const spinner = document.createElement('span');
+      spinner.className = 'loading-spinner';
+      spinner.style.display = 'none'; // hidden initially
+      return spinner;
     }
 
     function createPlaylist(name, tracks) {
@@ -163,45 +187,50 @@
       let currentTrackIndex = -1;
       let isPlaying = false;
 
-      // UPDATED loadTrack function ONLY:
       function loadTrack(index, attempt = 1) {
         if (index < 0 || index >= tracks.length) return;
         currentTrackIndex = index;
 
-        // Show loading feedback immediately
+        // Show spinner only on current track, hide others
+        const listItems = trackList.querySelectorAll('li');
+        listItems.forEach((item, i) => {
+          const spinner = item.querySelector('.loading-spinner');
+          if (i === index) {
+            spinner.style.display = 'inline-block';
+          } else {
+            spinner.style.display = 'none';
+          }
+        });
+
         loadingProgressBar.style.width = '0%';
         loadingProgressBar.style.display = 'block';
         waveformContainer.style.opacity = '0.3';
 
         let didLoad = false;
         const MAX_RETRIES = 3;
-        const TIMEOUT = 6000; // 6 seconds timeout per attempt
+        const TIMEOUT = 7000; // 7 seconds timeout for load
 
-        // Clear previous listeners to prevent duplicates
-        wavesurfer.unAll();
-
-        const timeoutId = setTimeout(() => {
-          if (!didLoad) {
-            retryLoad();
-          }
+        const timeout = setTimeout(() => {
+          if (!didLoad) retryLoad();
         }, TIMEOUT);
 
         function retryLoad() {
-          clearTimeout(timeoutId);
+          clearTimeout(timeout);
           if (attempt < MAX_RETRIES) {
             loadTrack(index, attempt + 1);
           } else {
-            // Failed after max retries - reset UI feedback
             loadingProgressBar.style.display = 'none';
             waveformContainer.style.opacity = '1';
+            // Hide spinner after max retries
+            const spinner = listItems[index].querySelector('.loading-spinner');
+            if (spinner) spinner.style.display = 'none';
           }
         }
 
         wavesurfer.once('ready', () => {
           didLoad = true;
-          clearTimeout(timeoutId);
+          clearTimeout(timeout);
           loadingProgressBar.style.width = '100%';
-
           setTimeout(() => {
             loadingProgressBar.style.display = 'none';
             waveformContainer.style.opacity = '1';
@@ -209,20 +238,20 @@
             isPlaying = true;
             updatePlayPauseButton();
             updateActiveTrack();
+            // Hide spinner on successful load
+            const spinner = listItems[index].querySelector('.loading-spinner');
+            if (spinner) spinner.style.display = 'none';
           }, 200);
         });
 
-        wavesurfer.once('error', () => {
-          retryLoad();
-        });
-
-        wavesurfer.on('loading', (percent) => {
-          loadingProgressBar.style.width = percent + '%';
-        });
+        wavesurfer.once('error', retryLoad);
 
         wavesurfer.load(tracks[index].file);
       }
-      // END updated loadTrack function
+
+      wavesurfer.on('loading', (percent) => {
+        loadingProgressBar.style.width = percent + '%';
+      });
 
       wavesurfer.on('finish', () => {
         const nextIndex = currentTrackIndex + 1;
@@ -265,6 +294,10 @@
         nameSpan.className = 'truncate w-full pr-2';
         listItem.appendChild(nameSpan);
 
+        // Create and append spinner (hidden initially)
+        const spinner = createSpinner();
+        listItem.appendChild(spinner);
+
         const durationSpan = document.createElement('span');
         durationSpan.className = 'duration';
         durationSpan.textContent = '--:--';
@@ -279,13 +312,13 @@
           if (currentTrackIndex === index && isPlaying) {
             wavesurfer.pause();
             isPlaying = false;
-            updatePlayPauseButton();
-            updateActiveTrack();
+            spinner.style.display = 'none';  // Hide spinner if paused
           } else {
             loadTrack(index);
-            updatePlayPauseButton();
-            updateActiveTrack();
+            spinner.style.display = 'inline-block'; // Show spinner immediately
           }
+          updatePlayPauseButton();
+          updateActiveTrack();
         });
 
         trackList.appendChild(listItem);
