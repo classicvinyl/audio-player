@@ -1,129 +1,137 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Audio Player</title>
-  <script src="https://unpkg.com/wavesurfer.js"></script>
-  <script src="https://unpkg.com/wavesurfer.js/dist/plugin/wavesurfer.timeline.min.js"></script>
-  <script src="https://unpkg.com/wavesurfer.js/dist/plugin/wavesurfer.cursor.min.js"></script>
-  <script src="https://unpkg.com/wavesurfer.js/dist/plugin/wavesurfer.regions.min.js"></script>
-  <script src="https://unpkg.com/wavesurfer.js/dist/plugin/wavesurfer.minimap.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-</head>
-<body class="bg-gray-900 text-white">
-  <div class="max-w-4xl mx-auto p-4">
-    <div id="playlist-selector" class="space-y-2"></div>
-    <div id="player-container" class="mt-8 hidden">
-      <h2 id="playlist-title" class="text-xl font-bold mb-4"></h2>
-      <div id="waveform" class="bg-gray-800 rounded mb-4 h-24"></div>
-      <div class="flex items-center space-x-4 mb-4">
-        <button id="play-button" class="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600">
-          ▶️ Play
-        </button>
-        <span id="loading-progress" class="text-sm text-gray-400"></span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Audio Player</title>
+    <script src="https://unpkg.com/wavesurfer.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+      body {
+        background-color: #1f2937;
+        color: white;
+        font-family: sans-serif;
+      }
+      .active-track {
+        background-color: #4b5563;
+      }
+      .playlist-button {
+        background-color: #374151;
+      }
+      .playlist-button:hover {
+        background-color: #4b5563;
+      }
+    </style>
+  </head>
+  <body class="p-4">
+    <div id="playlistList" class="space-y-2"></div>
+    <div id="playerContainer" class="mt-8 hidden">
+      <div class="flex justify-between items-center mb-2">
+        <h2 id="playlistTitle" class="text-xl font-bold"></h2>
+        <button id="playPause" class="bg-gray-700 px-4 py-2 rounded">Play</button>
       </div>
-      <ul id="track-list" class="space-y-2"></ul>
+      <div id="waveform" class="mb-4 bg-gray-800 rounded h-24"></div>
+      <div id="trackList" class="space-y-1"></div>
     </div>
-    <div id="other-playlists" class="mt-8 space-y-2"></div>
-  </div>
+    <div id="otherPlaylists" class="mt-8 space-y-2"></div>
 
-  <script>
-    let currentPlaylist = null;
-    let currentTrackIndex = 0;
-    let wavesurfer;
+    <script>
+      const playlistList = document.getElementById("playlistList");
+      const playerContainer = document.getElementById("playerContainer");
+      const otherPlaylists = document.getElementById("otherPlaylists");
+      const playlistTitle = document.getElementById("playlistTitle");
+      const trackList = document.getElementById("trackList");
+      const playPause = document.getElementById("playPause");
+      const waveformContainer = document.getElementById("waveform");
+      let wavesurfer;
+      let currentTrackIndex = 0;
+      let currentTracks = [];
 
-    async function fetchPlaylists() {
-      const res = await fetch('files.json');
-      return await res.json();
-    }
+      fetch("files.json")
+        .then((res) => res.json())
+        .then((data) => {
+          renderPlaylistButtons(data, playlistList);
 
-    function createPlaylistButton(name, onClick) {
-      const btn = document.createElement('button');
-      btn.textContent = name;
-      btn.className = "block w-full text-left bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded";
-      btn.onclick = onClick;
-      return btn;
-    }
+          function renderPlaylistButtons(playlists, container, selected = null) {
+            container.innerHTML = "";
+            playlists.forEach((pl, index) => {
+              if (pl.playlist !== selected) {
+                const button = document.createElement("button");
+                button.className = "block w-full text-left playlist-button px-4 py-2 rounded";
+                button.textContent = pl.playlist;
+                button.onclick = () => loadPlaylist(pl, playlists);
+                container.appendChild(button);
+              }
+            });
+          }
 
-    function loadPlaylist(playlist) {
-      currentPlaylist = playlist;
-      currentTrackIndex = 0;
-      document.getElementById('playlist-title').textContent = playlist.playlist;
-      const trackList = document.getElementById('track-list');
-      trackList.innerHTML = '';
+          function loadPlaylist(playlist, allPlaylists) {
+            playlistTitle.textContent = playlist.playlist;
+            playerContainer.classList.remove("hidden");
+            currentTracks = playlist.tracks;
+            currentTrackIndex = 0;
+            renderTrackList();
+            loadTrack(currentTrackIndex);
 
-      playlist.tracks.forEach((track, index) => {
-        const li = document.createElement('li');
-        li.textContent = track.title;
-        li.className = `px-4 py-2 rounded cursor-pointer ${index === 0 ? 'bg-gray-700' : 'hover:bg-gray-800'}`;
-        li.onclick = () => {
-          currentTrackIndex = index;
-          loadTrack(track.file);
-          highlightPlayingTrack();
-        };
-        trackList.appendChild(li);
-      });
+            renderPlaylistButtons(allPlaylists, otherPlaylists, playlist.playlist);
+          }
 
-      document.getElementById('player-container').classList.remove('hidden');
-      loadTrack(playlist.tracks[0].file);
+          function renderTrackList() {
+            trackList.innerHTML = "";
+            currentTracks.forEach((track, index) => {
+              const div = document.createElement("div");
+              div.className = `cursor-pointer px-4 py-2 rounded ${
+                index === currentTrackIndex ? "active-track" : "bg-gray-700 hover:bg-gray-600"
+              }`;
+              div.textContent = track.title;
+              div.onclick = () => {
+                currentTrackIndex = index;
+                loadTrack(index);
+              };
+              trackList.appendChild(div);
+            });
+          }
 
-      renderOtherPlaylists();
-    }
+          function loadTrack(index) {
+            if (wavesurfer) {
+              wavesurfer.destroy();
+            }
+            const track = currentTracks[index];
+            wavesurfer = WaveSurfer.create({
+              container: waveformContainer,
+              waveColor: '#9CA3AF',
+              progressColor: '#D1D5DB',
+              height: 96,
+              barWidth: 2,
+              responsive: true,
+            });
 
-    function highlightPlayingTrack() {
-      const items = document.querySelectorAll('#track-list li');
-      items.forEach((li, i) => {
-        li.className = `px-4 py-2 rounded cursor-pointer ${i === currentTrackIndex ? 'bg-gray-700' : 'hover:bg-gray-800'}`;
-      });
-    }
+            wavesurfer.load(track.file);
 
-    function loadTrack(file) {
-      if (wavesurfer) wavesurfer.destroy();
-      wavesurfer = WaveSurfer.create({
-        container: '#waveform',
-        waveColor: '#ccc',
-        progressColor: '#888',
-        height: 96
-      });
-      wavesurfer.load(file);
+            wavesurfer.on('ready', () => {
+              wavesurfer.play();
+              playPause.textContent = "Pause";
+              renderTrackList();
+            });
 
-      const progress = document.getElementById('loading-progress');
-      wavesurfer.on('loading', p => progress.textContent = `Loading: ${p}%`);
-      wavesurfer.on('ready', () => progress.textContent = '');
-    }
+            wavesurfer.on('finish', () => {
+              if (currentTrackIndex + 1 < currentTracks.length) {
+                currentTrackIndex++;
+                loadTrack(currentTrackIndex);
+              }
+            });
 
-    document.getElementById('play-button').onclick = () => {
-      if (wavesurfer) wavesurfer.playPause();
-    };
-
-    let allPlaylists = [];
-
-    function renderInitialPlaylists() {
-      const selector = document.getElementById('playlist-selector');
-      selector.innerHTML = '';
-      allPlaylists.forEach((pl, i) => {
-        const btn = createPlaylistButton(pl.playlist, () => loadPlaylist(pl));
-        selector.appendChild(btn);
-      });
-    }
-
-    function renderOtherPlaylists() {
-      const other = document.getElementById('other-playlists');
-      other.innerHTML = '';
-      allPlaylists.forEach((pl) => {
-        if (pl.playlist !== currentPlaylist.playlist) {
-          const btn = createPlaylistButton(pl.playlist, () => loadPlaylist(pl));
-          other.appendChild(btn);
-        }
-      });
-      document.getElementById('playlist-selector').classList.add('hidden');
-    }
-
-    fetchPlaylists().then(playlists => {
-      allPlaylists = playlists;
-      renderInitialPlaylists();
-    });
-  </script>
-</body>
+            playPause.onclick = () => {
+              if (wavesurfer.isPlaying()) {
+                wavesurfer.pause();
+                playPause.textContent = "Play";
+              } else {
+                wavesurfer.play();
+                playPause.textContent = "Pause";
+              }
+            };
+          }
+        });
+    </script>
+  </body>
 </html>
