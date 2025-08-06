@@ -3,84 +3,61 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>uous jamz</title>
+  <title>Audio Player</title>
   <script src="https://unpkg.com/wavesurfer.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     body {
-      background-color: #2a1a26;
-    }
-    .playlist-container {
-      background-color: #000;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      border-color: #808080;
-      margin-bottom: 6rem;
+      background-color: #111;
+      color: white;
+      font-family: sans-serif;
     }
     .playlist-title {
-      color: grey;
+      font-size: 1.25rem;
       font-weight: bold;
-      font-size: 2rem;
-      margin: 0;
     }
     .track-item {
-      cursor: pointer;
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      padding: 0.5rem 1rem;
-      border-radius: 0.375rem;
-      color: white;
-      transition: background-color 0.3s;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
     }
     .track-item:hover {
-      background-color: #3c2a36;
+      background-color: #222;
     }
     .track-item.active {
-      background-color: grey;
-      font-weight: bold;
-    }
-    .duration {
-      color: #bbb;
-      font-size: 0.85rem;
-      min-width: 40px;
-      text-align: right;
-    }
-    .waveform-container {
-      position: relative;
-      height: 130px;
-      margin-bottom: 2rem;
-      background-color: #000;
-      border-radius: 0.5rem;
-      border-color: #808080;
-      transition: opacity 0.3s ease;
+      background-color: #333;
     }
     .play-pause-button {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: orange;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      width: 32px;
+      height: 32px;
       cursor: pointer;
-      transition: background 0.3s;
-      flex-shrink: 0;
     }
-    .play-icon, .pause-icon {
-      fill: white;
-      width: 30px;
-      height: 30px;
+    .waveform-container {
+      margin-bottom: 0.5rem;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      background: #222;
+      position: relative;
     }
   </style>
 </head>
-<body>
-  <div id="playlists" class="space-y-12 p-6"></div>
+<body class="p-4">
+  <div id="playlist-buttons" class="mb-6 space-y-2"></div>
+  <div id="main-player" class="mb-8"></div>
+  <div id="other-playlists" class="space-y-6"></div>
 
   <script>
-    async function loadFiles() {
-      const res = await fetch('files.json');
-      return res.json();
+    async function fetchPlaylists() {
+      const response = await fetch('files.json');
+      return await response.json();
+    }
+
+    function createPlayPauseSVG(isPlaying) {
+      return isPlaying
+        ? `<svg fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>`
+        : `<svg fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
     }
 
     function formatTime(seconds) {
@@ -89,29 +66,12 @@
       return `${mins}:${secs}`;
     }
 
-    function createPlayPauseSVG(isPlaying) {
-      if (isPlaying) {
-        return `
-          <svg class="pause-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <rect x="6" y="5" width="4" height="14"></rect>
-            <rect x="14" y="5" width="4" height="14"></rect>
-          </svg>
-        `;
-      } else {
-        return `
-          <svg class="play-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 5v14l11-7z"></path>
-          </svg>
-        `;
-      }
-    }
-
     function createPlaylist(name, tracks) {
       const container = document.createElement('div');
       container.className = 'playlist-container';
 
       const header = document.createElement('div');
-      header.className = 'flex flex-wrap justify-between items-center gap-2 mb-4';
+      header.className = 'flex justify-between items-center mb-4';
 
       const title = document.createElement('h2');
       title.className = 'playlist-title m-0';
@@ -119,7 +79,7 @@
       header.appendChild(title);
 
       const playPauseButton = document.createElement('div');
-      playPauseButton.className = 'play-pause-button ml-auto';
+      playPauseButton.className = 'play-pause-button';
       playPauseButton.innerHTML = createPlayPauseSVG(false);
       header.appendChild(playPauseButton);
 
@@ -148,7 +108,7 @@
         container: waveformContainer,
         waveColor: 'white',
         progressColor: 'orange',
-        height: 130,
+        height: 64,
         responsive: true
       });
 
@@ -214,11 +174,10 @@
 
       tracks.forEach((track, index) => {
         const listItem = document.createElement('li');
-        listItem.className = 'track-item flex-nowrap overflow-hidden';
+        listItem.className = 'track-item';
 
         const nameSpan = document.createElement('span');
         nameSpan.textContent = track.title;
-        nameSpan.className = 'truncate w-full pr-2';
         listItem.appendChild(nameSpan);
 
         const durationSpan = document.createElement('span');
@@ -252,20 +211,42 @@
       return container;
     }
 
-    async function init() {
-      const files = await loadFiles();
-      const playlistsContainer = document.getElementById('playlists');
+    fetchPlaylists().then(data => {
+      const playlistButtons = document.getElementById('playlist-buttons');
+      const mainPlayer = document.getElementById('main-player');
+      const otherPlaylists = document.getElementById('other-playlists');
 
-      files.forEach(playlistObj => {
-        const playlistName = playlistObj.playlist;
-        const tracks = playlistObj.tracks;
+      const playlistNames = Object.keys(data);
+      let current = null;
 
-        const playlistElement = createPlaylist(playlistName, tracks);
-        playlistsContainer.appendChild(playlistElement);
+      playlistNames.forEach((name, index) => {
+        const button = document.createElement('button');
+        button.className = 'block w-full text-left px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded';
+        button.textContent = name;
+        playlistButtons.appendChild(button);
+
+        button.addEventListener('click', () => {
+          // Clear main player
+          mainPlayer.innerHTML = '';
+          const main = createPlaylist(name, data[name]);
+          mainPlayer.appendChild(main);
+
+          // Clear other playlists
+          otherPlaylists.innerHTML = '';
+          playlistNames.forEach((otherName, i) => {
+            if (otherName !== name) {
+              const p = createPlaylist(otherName, data[otherName]);
+              otherPlaylists.appendChild(p);
+            }
+          });
+        });
+
+        // Auto-load first playlist
+        if (index === 0) {
+          button.click();
+        }
       });
-    }
-
-    init();
+    });
   </script>
 </body>
 </html>
