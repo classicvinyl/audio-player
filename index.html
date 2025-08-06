@@ -265,7 +265,7 @@
       const activeContainer = document.getElementById('active-playlist');
       const otherContainer = document.getElementById('other-playlists');
 
-      // Show playlist list on page load:
+      // On page load, show list of all playlists as clickable items:
       files.forEach((playlist, index) => {
         const button = document.createElement('div');
         button.className = 'track-item active flex-nowrap overflow-hidden';
@@ -277,7 +277,7 @@
         button.appendChild(nameSpan);
 
         button.addEventListener('click', () => {
-          // Clear the containers:
+          // Clear containers and selector:
           activeContainer.innerHTML = '';
           otherContainer.innerHTML = '';
           selector.innerHTML = '';
@@ -286,76 +286,21 @@
           const active = createPlaylist(playlist.playlist, playlist.tracks);
           activeContainer.appendChild(active);
 
-          // Show other playlists as simple links below:
-          files.forEach((p, i) => {
-            if (i !== index) {
-              const otherBtn = document.createElement('div');
-              otherBtn.className = 'track-item active flex-nowrap overflow-hidden';
-              otherBtn.style.cursor = 'pointer';
+          // Show only one link: "PLAYLISTS" styled like track-item active:
+          const backToList = document.createElement('div');
+          backToList.className = 'track-item active flex-nowrap overflow-hidden';
+          backToList.style.cursor = 'pointer';
 
-              const nameSpanOther = document.createElement('span');
-              nameSpanOther.textContent = p.playlist;
-              nameSpanOther.className = 'truncate w-full';
-              otherBtn.appendChild(nameSpanOther);
+          const backText = document.createElement('span');
+          backText.textContent = 'PLAYLISTS';
+          backText.className = 'truncate w-full';
+          backToList.appendChild(backText);
 
-              otherBtn.addEventListener('click', () => {
-                // Repeat click behavior recursively:
-                activeContainer.innerHTML = '';
-                otherContainer.innerHTML = '';
-                selector.innerHTML = '';
-
-                const newActive = createPlaylist(p.playlist, p.tracks);
-                activeContainer.appendChild(newActive);
-
-                files.forEach((pl, idx) => {
-                  if (idx !== i) {
-                    const otherP = document.createElement('div');
-                    otherP.className = 'track-item active flex-nowrap overflow-hidden';
-                    otherP.style.cursor = 'pointer';
-
-                    const spanP = document.createElement('span');
-                    spanP.textContent = pl.playlist;
-                    spanP.className = 'truncate w-full';
-                    otherP.appendChild(spanP);
-
-                    otherP.addEventListener('click', () => {
-                      // Nested click again...
-                      activeContainer.innerHTML = '';
-                      otherContainer.innerHTML = '';
-                      selector.innerHTML = '';
-
-                      const deeperActive = createPlaylist(pl.playlist, pl.tracks);
-                      activeContainer.appendChild(deeperActive);
-
-                      files.forEach((pp, pidx) => {
-                        if (pidx !== idx) {
-                          const otherDeep = document.createElement('div');
-                          otherDeep.className = 'track-item active flex-nowrap overflow-hidden';
-                          otherDeep.style.cursor = 'pointer';
-
-                          const spanDeep = document.createElement('span');
-                          spanDeep.textContent = pp.playlist;
-                          spanDeep.className = 'truncate w-full';
-                          otherDeep.appendChild(spanDeep);
-
-                          otherDeep.addEventListener('click', () => {
-                            // Continue...
-                            // You get the idea; this infinite recursion not ideal
-                          });
-
-                          otherContainer.appendChild(otherDeep);
-                        }
-                      });
-                    });
-
-                    otherContainer.appendChild(otherP);
-                  }
-                });
-              });
-
-              otherContainer.appendChild(otherBtn);
-            }
+          backToList.addEventListener('click', () => {
+            location.reload();
           });
+
+          otherContainer.appendChild(backToList);
         });
 
         selector.appendChild(button);
