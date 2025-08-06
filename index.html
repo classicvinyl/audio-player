@@ -144,10 +144,17 @@
       container.className = 'playlist-container';
 
       tracks.sort((a, b) => {
-        const numA = parseInt(a.title.match(/\d+/)?.[0]) || 0;
-        const numB = parseInt(b.title.match(/\d+/)?.[0]) || 0;
-        return numA - numB;
-      });
+  function extractFullNumber(str) {
+    // Extract all digit groups globally, join into one string
+    const allNums = str.match(/\d+/g);
+    if (!allNums) return 0;
+    return parseInt(allNums.join(''), 10);
+  }
+  
+  const numA = extractFullNumber(a.title);
+  const numB = extractFullNumber(b.title);
+  return numA - numB;
+});
 
       const header = document.createElement('div');
       header.className = 'flex flex-wrap justify-between items-center gap-2 mb-4';
