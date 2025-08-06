@@ -103,33 +103,23 @@
     }
 
     function createPlayPauseSVG(isPlaying) {
-      if (isPlaying) {
-        return `
-          <svg class="pause-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <rect x="6" y="5" width="4" height="14"></rect>
-            <rect x="14" y="5" width="4" height="14"></rect>
-          </svg>`;
-      } else {
-        return `
-          <svg class="play-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 5v14l11-7z"></path>
-          </svg>`;
-      }
+      return isPlaying
+        ? `<svg class="pause-icon" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>`
+        : `<svg class="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>`;
     }
 
-      function createPlaylist(name, tracks) {
-        const container = document.createElement('div');
-        container.className = 'playlist-container';
+    function createPlaylist(name, tracks) {
+      const container = document.createElement('div');
+      container.className = 'playlist-container';
 
-        // ✅ SORT TRACKS BY NUMBER IN TITLE
-        tracks.sort((a, b) => {
-          const numA = parseInt(a.title.match(/\d+/)?.[0]) || 0;
-          const numB = parseInt(b.title.match(/\d+/)?.[0]) || 0;
-          return numA - numB;
-        });
+      tracks.sort((a, b) => {
+        const numA = parseInt(a.title.match(/\d+/)?.[0]) || 0;
+        const numB = parseInt(b.title.match(/\d+/)?.[0]) || 0;
+        return numA - numB;
+      });
 
-        const header = document.createElement('div');
-        header.className = 'flex flex-wrap justify-between items-center gap-2 mb-4';
+      const header = document.createElement('div');
+      header.className = 'flex flex-wrap justify-between items-center gap-2 mb-4';
 
       const title = document.createElement('h2');
       title.className = 'playlist-title m-0';
@@ -173,29 +163,52 @@
       let currentTrackIndex = -1;
       let isPlaying = false;
 
-      function loadTrack(index) {
+      function loadTrack(index, attempt = 1) {
         if (index < 0 || index >= tracks.length) return;
         currentTrackIndex = index;
+
         loadingProgressBar.style.width = '0%';
         loadingProgressBar.style.display = 'block';
         waveformContainer.style.opacity = '0.3';
+
+        let didLoad = false;
+        const MAX_RETRIES = 3;
+        const TIMEOUT = 5000;
+
+        const timeout = setTimeout(() => {
+          if (!didLoad) retryLoad();
+        }, TIMEOUT);
+
+        function retryLoad() {
+          clearTimeout(timeout);
+          if (attempt < MAX_RETRIES) {
+            loadTrack(index, attempt + 1);
+          } else {
+            loadingProgressBar.style.display = 'none';
+            waveformContainer.style.opacity = '1';
+          }
+        }
+
+        wavesurfer.once('ready', () => {
+          didLoad = true;
+          clearTimeout(timeout);
+          loadingProgressBar.style.width = '100%';
+          setTimeout(() => {
+            loadingProgressBar.style.display = 'none';
+            waveformContainer.style.opacity = '1';
+            wavesurfer.play();
+            isPlaying = true;
+            updatePlayPauseButton();
+            updateActiveTrack();
+          }, 200);
+        });
+
+        wavesurfer.once('error', retryLoad);
         wavesurfer.load(tracks[index].file);
       }
 
       wavesurfer.on('loading', (percent) => {
         loadingProgressBar.style.width = percent + '%';
-      });
-
-      wavesurfer.on('ready', () => {
-        loadingProgressBar.style.width = '100%';
-        setTimeout(() => {
-          loadingProgressBar.style.display = 'none';
-          waveformContainer.style.opacity = '1';
-          wavesurfer.play();
-          isPlaying = true;
-          updatePlayPauseButton();
-          updateActiveTrack();
-        }, 200);
       });
 
       wavesurfer.on('finish', () => {
@@ -272,8 +285,7 @@
       const activeContainer = document.getElementById('active-playlist');
       const otherContainer = document.getElementById('other-playlists');
 
-      // On page load, show list of all playlists as clickable items:
-      files.forEach((playlist, index) => {
+      files.forEach((playlist) => {
         const button = document.createElement('div');
         button.className = 'track-item active flex-nowrap overflow-hidden';
         button.style.cursor = 'pointer';
@@ -284,16 +296,13 @@
         button.appendChild(nameSpan);
 
         button.addEventListener('click', () => {
-          // Clear containers and selector:
+          selector.innerHTML = '';
           activeContainer.innerHTML = '';
           otherContainer.innerHTML = '';
-          selector.innerHTML = '';
 
-          // Show the chosen playlist expanded:
           const active = createPlaylist(playlist.playlist, playlist.tracks);
           activeContainer.appendChild(active);
 
-          // Show only one link: "PLAYLISTS" styled like track-item active:
           const backToList = document.createElement('div');
           backToList.className = 'track-item active inline-block px-4 py-2 rounded';
           backToList.style.cursor = 'pointer';
@@ -303,9 +312,7 @@
           backText.className = 'truncate px-4 py-2';
           backToList.appendChild(backText);
 
-          backToList.addEventListener('click', () => {
-            location.reload();
-          });
+          backToList.addEventListener('click', () => location.reload());
 
           otherContainer.appendChild(backToList);
         });
