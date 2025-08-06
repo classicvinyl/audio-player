@@ -144,36 +144,12 @@
       container.className = 'playlist-container';
 
       tracks.sort((a, b) => {
-  function extractDigits(str) {
-    if (!str) return '';
-    const nums = str.match(/\d+/g);
-    return nums ? nums.join('') : '';
+  function extractFullNumber(str) {
+    // Extract all digit groups globally, join into one string
+    const allNums = str.match(/\d+/g);
+    if (!allNums) return 0;
+    return parseInt(allNums.join(''), 10);
   }
-
-  const numStrA = extractDigits(a.title);
-  const numStrB = extractDigits(b.title);
-
-  if (numStrA === '' && numStrB === '') {
-    // Both have no digits, sort lexicographically
-    return a.title.localeCompare(b.title);
-  } else if (numStrA === '') {
-    return 1; // a after b
-  } else if (numStrB === '') {
-    return -1; // a before b
-  }
-
-  // Convert to BigInt to avoid number size issues
-  try {
-    const numA = BigInt(numStrA);
-    const numB = BigInt(numStrB);
-    if (numA < numB) return -1;
-    if (numA > numB) return 1;
-    return 0;
-  } catch {
-    // If BigInt fails, fallback to string compare
-    return numStrA.localeCompare(numStrB);
-  }
-});
   
   const numA = extractFullNumber(a.title);
   const numB = extractFullNumber(b.title);
