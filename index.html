@@ -288,12 +288,12 @@
 
           // Show only one link: "PLAYLISTS" styled like track-item active:
           const backToList = document.createElement('div');
-          backToList.className = 'track-item active flex-nowrap overflow-hidden';
+          backToList.className = 'track-item active inline-block px-4 py-2 rounded';
           backToList.style.cursor = 'pointer';
 
           const backText = document.createElement('span');
           backText.textContent = 'PLAYLISTS';
-          backText.className = 'truncate px-4 py-2';
+          backText.className = 'truncate w-full';
           backToList.appendChild(backText);
 
           backToList.addEventListener('click', () => {
