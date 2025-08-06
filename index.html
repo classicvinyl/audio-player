@@ -2,148 +2,128 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Audio Player</title>
   <script src="https://unpkg.com/wavesurfer.js"></script>
   <script src="https://unpkg.com/wavesurfer.js/dist/plugin/wavesurfer.timeline.min.js"></script>
+  <script src="https://unpkg.com/wavesurfer.js/dist/plugin/wavesurfer.cursor.min.js"></script>
+  <script src="https://unpkg.com/wavesurfer.js/dist/plugin/wavesurfer.regions.min.js"></script>
+  <script src="https://unpkg.com/wavesurfer.js/dist/plugin/wavesurfer.minimap.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <style>
-    body {
-      background-color: #1a202c;
-      color: white;
-    }
-    .playlist-button {
-      background-color: #065f46;
-      padding: 0.5rem 1rem;
-      margin-bottom: 0.5rem;
-      border-radius: 0.5rem;
-      width: 100%;
-      text-align: left;
-    }
-    .playlist-button:hover {
-      background-color: #047857;
-    }
-  </style>
 </head>
-<body class="p-4">
-  <div id="playlist-selector" class="space-y-2"></div>
-
-  <div id="player-container" class="hidden">
-    <div class="mb-4 flex justify-between items-center">
-      <h2 id="playlist-title" class="text-xl font-bold"></h2>
-      <button id="play-btn" class="text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded">Play</button>
+<body class="bg-gray-900 text-white">
+  <div class="max-w-4xl mx-auto p-4">
+    <div id="playlist-selector" class="space-y-2"></div>
+    <div id="player-container" class="mt-8 hidden">
+      <h2 id="playlist-title" class="text-xl font-bold mb-4"></h2>
+      <div id="waveform" class="bg-gray-800 rounded mb-4 h-24"></div>
+      <div class="flex items-center space-x-4 mb-4">
+        <button id="play-button" class="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600">
+          ▶️ Play
+        </button>
+        <span id="loading-progress" class="text-sm text-gray-400"></span>
+      </div>
+      <ul id="track-list" class="space-y-2"></ul>
     </div>
-    <div id="waveform" class="w-full h-24 mb-4"></div>
-    <div id="track-list" class="space-y-2"></div>
+    <div id="other-playlists" class="mt-8 space-y-2"></div>
   </div>
 
-  <div id="other-playlists" class="mt-6 space-y-2"></div>
-
   <script>
-    let wavesurfer;
     let currentPlaylist = null;
     let currentTrackIndex = 0;
-    let tracks = [];
+    let wavesurfer;
 
     async function fetchPlaylists() {
-      const response = await fetch('files.json');
-      return await response.json();
+      const res = await fetch('files.json');
+      return await res.json();
     }
 
-    function formatTime(seconds) {
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    function createPlaylistButton(name, onClick) {
+      const btn = document.createElement('button');
+      btn.textContent = name;
+      btn.className = "block w-full text-left bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded";
+      btn.onclick = onClick;
+      return btn;
     }
 
-    function renderPlaylistSelector(playlists) {
-      const container = document.getElementById("playlist-selector");
-      container.innerHTML = '';
-      playlists.forEach((p, index) => {
-        const button = document.createElement("button");
-        button.textContent = p.playlist;
-        button.className = "playlist-button";
-        button.onclick = () => loadPlaylist(playlists, index);
-        container.appendChild(button);
-      });
-    }
-
-    function loadPlaylist(playlists, selectedIndex) {
-      const selected = playlists[selectedIndex];
-      const others = playlists.filter((_, i) => i !== selectedIndex);
-      currentPlaylist = selected;
-      tracks = selected.tracks;
+    function loadPlaylist(playlist) {
+      currentPlaylist = playlist;
       currentTrackIndex = 0;
+      document.getElementById('playlist-title').textContent = playlist.playlist;
+      const trackList = document.getElementById('track-list');
+      trackList.innerHTML = '';
 
-      document.getElementById("playlist-selector").classList.add("hidden");
-      document.getElementById("player-container").classList.remove("hidden");
+      playlist.tracks.forEach((track, index) => {
+        const li = document.createElement('li');
+        li.textContent = track.title;
+        li.className = `px-4 py-2 rounded cursor-pointer ${index === 0 ? 'bg-gray-700' : 'hover:bg-gray-800'}`;
+        li.onclick = () => {
+          currentTrackIndex = index;
+          loadTrack(track.file);
+          highlightPlayingTrack();
+        };
+        trackList.appendChild(li);
+      });
 
-      document.getElementById("playlist-title").textContent = selected.playlist;
-      renderTrackList(tracks);
-      loadTrack(0);
+      document.getElementById('player-container').classList.remove('hidden');
+      loadTrack(playlist.tracks[0].file);
 
-      renderOtherPlaylists(others, playlists);
+      renderOtherPlaylists();
     }
 
-    function renderOtherPlaylists(others, allPlaylists) {
-      const container = document.getElementById("other-playlists");
-      container.innerHTML = '';
-      others.forEach(p => {
-        const button = document.createElement("button");
-        button.textContent = p.playlist;
-        button.className = "playlist-button";
-        button.onclick = () => loadPlaylist(allPlaylists, allPlaylists.findIndex(pl => pl.playlist === p.playlist));
-        container.appendChild(button);
+    function highlightPlayingTrack() {
+      const items = document.querySelectorAll('#track-list li');
+      items.forEach((li, i) => {
+        li.className = `px-4 py-2 rounded cursor-pointer ${i === currentTrackIndex ? 'bg-gray-700' : 'hover:bg-gray-800'}`;
       });
     }
 
-    function renderTrackList(tracks) {
-      const list = document.getElementById("track-list");
-      list.innerHTML = '';
-      tracks.forEach((track, i) => {
-        const trackBtn = document.createElement("div");
-        trackBtn.className = "bg-green-600 px-4 py-2 rounded cursor-pointer hover:bg-green-700";
-        trackBtn.textContent = `${track.title}`;
-        trackBtn.onclick = () => loadTrack(i);
-        list.appendChild(trackBtn);
-      });
-    }
-
-    function loadTrack(index) {
-      currentTrackIndex = index;
-      if (wavesurfer) {
-        wavesurfer.destroy();
-      }
-
+    function loadTrack(file) {
+      if (wavesurfer) wavesurfer.destroy();
       wavesurfer = WaveSurfer.create({
         container: '#waveform',
-        waveColor: '#4ade80',
-        progressColor: '#166534',
-        height: 80,
+        waveColor: '#ccc',
+        progressColor: '#888',
+        height: 96
       });
+      wavesurfer.load(file);
 
-      wavesurfer.load(tracks[index].file);
-
-      wavesurfer.on('ready', () => {
-        const playBtn = document.getElementById("play-btn");
-        playBtn.textContent = 'Play';
-      });
-
-      wavesurfer.on('finish', () => {
-        const nextIndex = currentTrackIndex + 1;
-        if (nextIndex < tracks.length) {
-          loadTrack(nextIndex);
-        }
-      });
-
-      document.getElementById("play-btn").onclick = () => {
-        wavesurfer.playPause();
-        const playBtn = document.getElementById("play-btn");
-        playBtn.textContent = wavesurfer.isPlaying() ? 'Pause' : 'Play';
-      };
+      const progress = document.getElementById('loading-progress');
+      wavesurfer.on('loading', p => progress.textContent = `Loading: ${p}%`);
+      wavesurfer.on('ready', () => progress.textContent = '');
     }
 
-    fetchPlaylists().then(renderPlaylistSelector);
+    document.getElementById('play-button').onclick = () => {
+      if (wavesurfer) wavesurfer.playPause();
+    };
+
+    let allPlaylists = [];
+
+    function renderInitialPlaylists() {
+      const selector = document.getElementById('playlist-selector');
+      selector.innerHTML = '';
+      allPlaylists.forEach((pl, i) => {
+        const btn = createPlaylistButton(pl.playlist, () => loadPlaylist(pl));
+        selector.appendChild(btn);
+      });
+    }
+
+    function renderOtherPlaylists() {
+      const other = document.getElementById('other-playlists');
+      other.innerHTML = '';
+      allPlaylists.forEach((pl) => {
+        if (pl.playlist !== currentPlaylist.playlist) {
+          const btn = createPlaylistButton(pl.playlist, () => loadPlaylist(pl));
+          other.appendChild(btn);
+        }
+      });
+      document.getElementById('playlist-selector').classList.add('hidden');
+    }
+
+    fetchPlaylists().then(playlists => {
+      allPlaylists = playlists;
+      renderInitialPlaylists();
+    });
   </script>
 </body>
 </html>
