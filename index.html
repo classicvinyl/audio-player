@@ -162,11 +162,17 @@
 
       let currentTrackIndex = -1;
       let isPlaying = false;
+      let currentLoadTimeout = null;
 
-      // Only updated loadTrack function here
       function loadTrack(index, attempt = 1) {
         if (index < 0 || index >= tracks.length) return;
         currentTrackIndex = index;
+
+        // Stop playback and unload any existing track before loading a new one
+        if (wavesurfer.isPlaying()) {
+          wavesurfer.stop();
+        }
+        wavesurfer.empty();
 
         loadingProgressBar.style.width = '0%';
         loadingProgressBar.style.display = 'block';
@@ -176,24 +182,28 @@
         const MAX_RETRIES = 3;
         const TIMEOUT = 7000;
 
-        const timeout = setTimeout(() => {
+        if (currentLoadTimeout) {
+          clearTimeout(currentLoadTimeout);
+        }
+
+        currentLoadTimeout = setTimeout(() => {
           if (!didLoad) retryLoad();
         }, TIMEOUT);
 
         function retryLoad() {
-          clearTimeout(timeout);
+          clearTimeout(currentLoadTimeout);
           if (attempt < MAX_RETRIES) {
             loadTrack(index, attempt + 1);
           } else {
             loadingProgressBar.style.display = 'none';
             waveformContainer.style.opacity = '1';
-            // Optionally mark failure in UI here if needed
+            // Could add failure indicator here if desired
           }
         }
 
         wavesurfer.once('ready', () => {
           didLoad = true;
-          clearTimeout(timeout);
+          clearTimeout(currentLoadTimeout);
           loadingProgressBar.style.width = '100%';
           setTimeout(() => {
             loadingProgressBar.style.display = 'none';
