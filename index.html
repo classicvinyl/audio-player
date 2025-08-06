@@ -72,19 +72,11 @@
       width: 30px;
       height: 30px;
     }
-    .playlist-link {
-      color: white;
-      cursor: pointer;
-      padding: 0.25rem 0;
-      display: block;
-    }
-    .playlist-link:hover {
-      text-decoration: underline;
-    }
   </style>
 </head>
 <body>
   <div class="p-6">
+    <div id="playlist-selector" class="mb-8 space-y-2"></div>
     <div id="active-playlist"></div>
     <div id="other-playlists" class="mt-12 space-y-12"></div>
   </div>
@@ -260,36 +252,40 @@
 
     async function init() {
       const files = await loadFiles();
+      const selector = document.getElementById('playlist-selector');
       const activeContainer = document.getElementById('active-playlist');
       const otherContainer = document.getElementById('other-playlists');
 
-      function render(index) {
-        activeContainer.innerHTML = '';
-        otherContainer.innerHTML = '';
+      selector.innerHTML = ''; // clear any old buttons
 
-        const active = createPlaylist(files[index].playlist, files[index].tracks);
-        activeContainer.appendChild(active);
+      files.forEach((playlist, index) => {
+        const button = document.createElement('div');
+        button.className = 'track-item flex-nowrap overflow-hidden';
+        button.style.cursor = 'pointer';
 
-        // Add links to other playlists BELOW the active playlist
-        files.forEach((playlist, i) => {
-          if (i !== index) {
-            const link = document.createElement('div');
-            link.className = 'track-item flex-nowrap overflow-hidden';
-            link.style.cursor = 'pointer';
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = playlist.playlist;
+        nameSpan.className = 'truncate w-full';
+        button.appendChild(nameSpan);
 
-            const nameSpan = document.createElement('span');
-            nameSpan.textContent = playlist.playlist;
-            nameSpan.className = 'truncate w-full';
-            link.appendChild(nameSpan);
+        button.addEventListener('click', () => {
+          selector.style.display = 'none'; // ✅ hide playlist list on click
+          activeContainer.innerHTML = '';
+          otherContainer.innerHTML = '';
 
-            link.addEventListener('click', () => render(i));
-            otherContainer.appendChild(link);
-          }
+          const active = createPlaylist(playlist.playlist, playlist.tracks);
+          activeContainer.appendChild(active);
+
+          files.forEach((p, i) => {
+            if (i !== index) {
+              const other = createPlaylist(p.playlist, p.tracks);
+              otherContainer.appendChild(other);
+            }
+          });
         });
-      }
 
-      // Load first playlist by default
-      render(0);
+        selector.appendChild(button);
+      });
     }
 
     init();
