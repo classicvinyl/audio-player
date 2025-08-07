@@ -141,28 +141,33 @@
 
     function createPlaylist(name, tracks) {
       const container = document.createElement('div');
-      container.className = 'playlist-container';
-
-      // Natural sort by title (numeric-aware)
+      
       tracks.sort((a, b) => {
         function tokenize(str) {
           return str.match(/\d+|\D+/g).map(token =>
             /\d/.test(token) ? parseInt(token, 10) : token.toLowerCase()
           );
         }
+
         const aTokens = tokenize(a.title);
         const bTokens = tokenize(b.title);
+
         const len = Math.max(aTokens.length, bTokens.length);
         for (let i = 0; i < len; i++) {
           const aTok = aTokens[i];
           const bTok = bTokens[i];
+
           if (aTok === undefined) return -1;
           if (bTok === undefined) return 1;
+
           if (aTok < bTok) return -1;
           if (aTok > bTok) return 1;
         }
+
         return 0;
       });
+
+      container.className = 'playlist-container';
 
       const header = document.createElement('div');
       header.className = 'flex flex-wrap justify-between items-center gap-2 mb-4';
@@ -202,7 +207,7 @@
       let currentLoadTimeout = null;
       let currentAttempt = 0;
       const MAX_RETRIES = 5;
-      const LOAD_TIMEOUT = 7000;
+      const LOAD_TIMEOUT = 20000; // 20 seconds timeout now
 
       let currentSpinner = null;
 
@@ -250,8 +255,7 @@
           waveColor: 'white',
           progressColor: 'orange',
           height: 130,
-          responsive: true,
-          backend: 'MediaElement'  // Use MediaElement backend for better mobile & streaming support
+          responsive: true
         });
 
         currentTrackIndex = index;
@@ -261,13 +265,14 @@
         loadingProgressBar.style.display = 'block';
         waveformContainer.style.opacity = '0.3';
 
-        // Show spinner beside track title
         tracks.forEach((_, i) => removeSpinnerFromTrack(i));
         addSpinnerToTrack(index);
 
         let didLoad = false;
 
-        if (currentLoadTimeout) clearTimeout(currentLoadTimeout);
+        if (currentLoadTimeout) {
+          clearTimeout(currentLoadTimeout);
+        }
 
         function retryLoad() {
           if (currentAttempt < MAX_RETRIES) {
@@ -338,6 +343,7 @@
 
       playPauseButton.addEventListener('click', () => {
         if (!wavesurfer) return;
+
         if (isPlaying) {
           wavesurfer.pause();
           isPlaying = false;
@@ -362,7 +368,6 @@
         durationSpan.textContent = '--:--';
         listItem.appendChild(durationSpan);
 
-        // Use HTMLAudioElement to get duration metadata without preloading wavesurfer
         const audio = new Audio(track.file);
         audio.addEventListener('loadedmetadata', () => {
           durationSpan.textContent = formatTime(audio.duration);
