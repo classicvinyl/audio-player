@@ -143,30 +143,30 @@
       const container = document.createElement('div');
       container.className = 'playlist-container';
 
-tracks.sort((a, b) => {
-  function tokenize(str) {
-    return str.match(/\d+|\D+/g).map(token =>
-      /\d/.test(token) ? parseInt(token, 10) : token.toLowerCase()
-    );
-  }
+      tracks.sort((a, b) => {
+        function tokenize(str) {
+          return str.match(/\d+|\D+/g).map(token =>
+            /\d/.test(token) ? parseInt(token, 10) : token.toLowerCase()
+          );
+        }
 
-  const aTokens = tokenize(a.title);
-  const bTokens = tokenize(b.title);
+        const aTokens = tokenize(a.title);
+        const bTokens = tokenize(b.title);
 
-  const len = Math.max(aTokens.length, bTokens.length);
-  for (let i = 0; i < len; i++) {
-    const aTok = aTokens[i];
-    const bTok = bTokens[i];
+        const len = Math.max(aTokens.length, bTokens.length);
+        for (let i = 0; i < len; i++) {
+          const aTok = aTokens[i];
+          const bTok = bTokens[i];
 
-    if (aTok === undefined) return -1;
-    if (bTok === undefined) return 1;
+          if (aTok === undefined) return -1;
+          if (bTok === undefined) return 1;
 
-    if (aTok < bTok) return -1;
-    if (aTok > bTok) return 1;
-  }
+          if (aTok < bTok) return -1;
+          if (aTok > bTok) return 1;
+        }
 
-  return 0;
-});
+        return 0;
+      });
 
       const header = document.createElement('div');
       header.className = 'flex flex-wrap justify-between items-center gap-2 mb-4';
@@ -331,7 +331,11 @@ tracks.sort((a, b) => {
           }
         });
 
-        wavesurfer.load(tracks[index].file);
+        // <-- THIS LINE CHANGED TO LOAD WAVEFORM JSON ALONGSIDE AUDIO -->
+        wavesurfer.load(
+          tracks[index].file,
+          tracks[index].file.replace(/\.mp3$/i, '.json')
+        );
       }
 
       function updateActiveTrack() {
