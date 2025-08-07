@@ -143,6 +143,7 @@
       const container = document.createElement('div');
       container.className = 'playlist-container';
 
+      // Natural sort by title (numeric-aware)
       tracks.sort((a, b) => {
         function tokenize(str) {
           return str.match(/\d+|\D+/g).map(token =>
@@ -238,7 +239,7 @@
         errorMessage.style.display = text ? 'block' : 'none';
       }
 
-      async function loadTrack(index) {
+      function loadTrack(index) {
         if (index < 0 || index >= tracks.length) return;
 
         clearWavesurfer();
@@ -249,7 +250,8 @@
           waveColor: 'white',
           progressColor: 'orange',
           height: 130,
-          responsive: true
+          responsive: true,
+          backend: 'MediaElement'  // Use MediaElement backend for better mobile & streaming support
         });
 
         currentTrackIndex = index;
@@ -259,14 +261,13 @@
         loadingProgressBar.style.display = 'block';
         waveformContainer.style.opacity = '0.3';
 
+        // Show spinner beside track title
         tracks.forEach((_, i) => removeSpinnerFromTrack(i));
         addSpinnerToTrack(index);
 
         let didLoad = false;
 
-        if (currentLoadTimeout) {
-          clearTimeout(currentLoadTimeout);
-        }
+        if (currentLoadTimeout) clearTimeout(currentLoadTimeout);
 
         function retryLoad() {
           if (currentAttempt < MAX_RETRIES) {
@@ -285,22 +286,6 @@
             retryLoad();
           }
         }, LOAD_TIMEOUT);
-
-        const peaksUrl = tracks[index].file + '.json';
-
-        try {
-          const resp = await fetch(peaksUrl);
-          if (!resp.ok) throw new Error('Peaks JSON not found');
-          const peaksData = await resp.json();
-
-          if (!Array.isArray(peaksData) && !Array.isArray(peaksData[0])) {
-            throw new Error('Invalid peaks data');
-          }
-
-          wavesurfer.load(tracks[index].file, peaksData);
-        } catch (e) {
-          wavesurfer.load(tracks[index].file);
-        }
 
         wavesurfer.once('ready', () => {
           didLoad = true;
@@ -337,6 +322,8 @@
             updateActiveTrack();
           }
         });
+
+        wavesurfer.load(tracks[index].file);
       }
 
       function updateActiveTrack() {
@@ -351,7 +338,6 @@
 
       playPauseButton.addEventListener('click', () => {
         if (!wavesurfer) return;
-
         if (isPlaying) {
           wavesurfer.pause();
           isPlaying = false;
@@ -376,6 +362,7 @@
         durationSpan.textContent = '--:--';
         listItem.appendChild(durationSpan);
 
+        // Use HTMLAudioElement to get duration metadata without preloading wavesurfer
         const audio = new Audio(track.file);
         audio.addEventListener('loadedmetadata', () => {
           durationSpan.textContent = formatTime(audio.duration);
