@@ -143,30 +143,25 @@
       const container = document.createElement('div');
       container.className = 'playlist-container';
 
-tracks.sort((a, b) => {
-  function tokenize(str) {
-    return str.match(/\d+|\D+/g).map(token =>
-      /\d/.test(token) ? parseInt(token, 10) : token.toLowerCase()
-    );
-  }
-
-  const aTokens = tokenize(a.title);
-  const bTokens = tokenize(b.title);
-
-  const len = Math.max(aTokens.length, bTokens.length);
-  for (let i = 0; i < len; i++) {
-    const aTok = aTokens[i];
-    const bTok = bTokens[i];
-
-    if (aTok === undefined) return -1;
-    if (bTok === undefined) return 1;
-
-    if (aTok < bTok) return -1;
-    if (aTok > bTok) return 1;
-  }
-
-  return 0;
-});
+      tracks.sort((a, b) => {
+        function tokenize(str) {
+          return str.match(/\d+|\D+/g).map(token =>
+            /\d/.test(token) ? parseInt(token, 10) : token.toLowerCase()
+          );
+        }
+        const aTokens = tokenize(a.title);
+        const bTokens = tokenize(b.title);
+        const len = Math.max(aTokens.length, bTokens.length);
+        for (let i = 0; i < len; i++) {
+          const aTok = aTokens[i];
+          const bTok = bTokens[i];
+          if (aTok === undefined) return -1;
+          if (bTok === undefined) return 1;
+          if (aTok < bTok) return -1;
+          if (aTok > bTok) return 1;
+        }
+        return 0;
+      });
 
       const header = document.createElement('div');
       header.className = 'flex flex-wrap justify-between items-center gap-2 mb-4';
@@ -208,7 +203,6 @@ tracks.sort((a, b) => {
       const MAX_RETRIES = 5;
       const LOAD_TIMEOUT = 7000;
 
-      // Spinner element to show beside track name on loading
       let currentSpinner = null;
 
       function createSpinner() {
@@ -234,9 +228,7 @@ tracks.sort((a, b) => {
       function addSpinnerToTrack(index) {
         const li = trackList.children[index];
         if (!li) return;
-        // Prevent multiple spinners
         if (li.querySelector('.loading-spinner')) return;
-
         const spinner = createSpinner();
         li.insertBefore(spinner, li.querySelector('.duration'));
       }
@@ -267,7 +259,6 @@ tracks.sort((a, b) => {
         loadingProgressBar.style.display = 'block';
         waveformContainer.style.opacity = '0.3';
 
-        // Add spinner beside track name
         tracks.forEach((_, i) => removeSpinnerFromTrack(i));
         addSpinnerToTrack(index);
 
@@ -295,18 +286,19 @@ tracks.sort((a, b) => {
           }
         }, LOAD_TIMEOUT);
 
-        const jsonUrl = tracks[index].file.replace(/\.mp3$/i, '.json');
+        const peaksUrl = tracks[index].file + '.json';
+
         try {
-          const resp = await fetch(jsonUrl, { method: 'HEAD' });
-          if (resp.ok) {
-            // Fetch and parse the JSON peaks file
-            const peaksResp = await fetch(jsonUrl);
-            const peaksData = await peaksResp.json();
-            wavesurfer.load(tracks[index].file, peaksData);
-          } else {
-            wavesurfer.load(tracks[index].file);
+          const resp = await fetch(peaksUrl);
+          if (!resp.ok) throw new Error('Peaks JSON not found');
+          const peaksData = await resp.json();
+
+          if (!Array.isArray(peaksData) && !Array.isArray(peaksData[0])) {
+            throw new Error('Invalid peaks data');
           }
-        } catch {
+
+          wavesurfer.load(tracks[index].file, peaksData);
+        } catch (e) {
           wavesurfer.load(tracks[index].file);
         }
 
