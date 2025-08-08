@@ -346,7 +346,7 @@
               }
             });
 
-            wavesurfer.load('https://d2nmhatu4a3eoh.cloudfront.net/' + encodeURIComponent(tracks[index].file));
+            wavesurfer.load(tracks[index].file);
           });
         });
       }
@@ -388,7 +388,7 @@
         durationSpan.textContent = '--:--';
         listItem.appendChild(durationSpan);
 
-        const audio = new Audio('https://d2nmhatu4a3eoh.cloudfront.net/' + encodeURIComponent(track.file));
+        const audio = new Audio(track.file);
         audio.addEventListener('loadedmetadata', () => {
           durationSpan.textContent = formatTime(audio.duration);
         });
