@@ -123,7 +123,8 @@
 
   <script>
     async function loadFiles() {
-      const res = await fetch('files.json');
+      // Fetch files.json directly from your S3 bucket
+      const res = await fetch('https://uous-audio-player.s3.eu-west-1.amazonaws.com/files.json');
       return res.json();
     }
 
@@ -140,6 +141,15 @@
     }
 
     function createPlaylist(name, tracks) {
+      const S3_BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/';
+      
+      // Prefix track file paths with full S3 URL if not absolute already
+      tracks.forEach(track => {
+        if (!track.file.startsWith('http')) {
+          track.file = S3_BASE_URL + track.file;
+        }
+      });
+
       const container = document.createElement('div');
       container.className = 'playlist-container';
 
