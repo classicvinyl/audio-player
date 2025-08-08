@@ -141,7 +141,9 @@
 
     function createPlaylist(name, tracks) {
       const container = document.createElement('div');
-      
+      container.className = 'playlist-container';
+
+      // Natural sort tracks by title with numeric awareness
       tracks.sort((a, b) => {
         function tokenize(str) {
           return str.match(/\d+|\D+/g).map(token =>
@@ -163,11 +165,8 @@
           if (aTok < bTok) return -1;
           if (aTok > bTok) return 1;
         }
-
         return 0;
       });
-
-      container.className = 'playlist-container';
 
       const header = document.createElement('div');
       header.className = 'flex flex-wrap justify-between items-center gap-2 mb-4';
@@ -207,8 +206,9 @@
       let currentLoadTimeout = null;
       let currentAttempt = 0;
       const MAX_RETRIES = 5;
-      const LOAD_TIMEOUT = 20000; // 20 seconds timeout now
+      const LOAD_TIMEOUT = 20000; // 20 seconds timeout
 
+      // Spinner element to show beside track name on loading
       let currentSpinner = null;
 
       function createSpinner() {
@@ -219,43 +219,24 @@
 
       function clearWavesurfer() {
         if (wavesurfer) {
+          wavesurfer.stop();
+          wavesurfer.unAll();
           wavesurfer.destroy();
           wavesurfer = null;
         }
       }
 
-      function removeSpinnerFromTrack(index) {
-        const li = trackList.children[index];
-        if (!li) return;
-        const spinner = li.querySelector('.loading-spinner');
-        if (spinner) spinner.remove();
-      }
+      // New improved loadTrack with delayed destroy & recreate
+      let pendingDestroy = null;
 
-      function addSpinnerToTrack(index) {
-        const li = trackList.children[index];
-        if (!li) return;
-        if (li.querySelector('.loading-spinner')) return;
-        const spinner = createSpinner();
-        li.insertBefore(spinner, li.querySelector('.duration'));
-      }
-
-      function setErrorMessage(text) {
-        errorMessage.textContent = text;
-        errorMessage.style.display = text ? 'block' : 'none';
-      }
-
-      function loadTrack(index) {
-        if (index < 0 || index >= tracks.length) return;
-
-        clearWavesurfer();
-        setErrorMessage('');
-
+      function createAndLoad(index) {
         wavesurfer = WaveSurfer.create({
           container: waveformContainer,
           waveColor: 'white',
           progressColor: 'orange',
           height: 130,
-          responsive: true
+          responsive: true,
+          backend: 'MediaElement'
         });
 
         currentTrackIndex = index;
@@ -265,6 +246,7 @@
         loadingProgressBar.style.display = 'block';
         waveformContainer.style.opacity = '0.3';
 
+        // Add spinner beside track name
         tracks.forEach((_, i) => removeSpinnerFromTrack(i));
         addSpinnerToTrack(index);
 
@@ -331,6 +313,48 @@
         wavesurfer.load(tracks[index].file);
       }
 
+      function loadTrack(index) {
+        if (index < 0 || index >= tracks.length) return;
+
+        if (pendingDestroy) {
+          clearTimeout(pendingDestroy);
+          pendingDestroy = null;
+        }
+
+        if (wavesurfer) {
+          wavesurfer.stop();
+          wavesurfer.unAll();
+          pendingDestroy = setTimeout(() => {
+            wavesurfer.destroy();
+            wavesurfer = null;
+            pendingDestroy = null;
+            createAndLoad(index);
+          }, 100);
+        } else {
+          createAndLoad(index);
+        }
+      }
+
+      function removeSpinnerFromTrack(index) {
+        const li = trackList.children[index];
+        if (!li) return;
+        const spinner = li.querySelector('.loading-spinner');
+        if (spinner) spinner.remove();
+      }
+
+      function addSpinnerToTrack(index) {
+        const li = trackList.children[index];
+        if (!li) return;
+        if (li.querySelector('.loading-spinner')) return;
+        const spinner = createSpinner();
+        li.insertBefore(spinner, li.querySelector('.duration'));
+      }
+
+      function setErrorMessage(text) {
+        errorMessage.textContent = text;
+        errorMessage.style.display = text ? 'block' : 'none';
+      }
+
       function updateActiveTrack() {
         trackList.querySelectorAll('li').forEach((el, i) => {
           el.classList.toggle('active', i === currentTrackIndex);
@@ -343,7 +367,6 @@
 
       playPauseButton.addEventListener('click', () => {
         if (!wavesurfer) return;
-
         if (isPlaying) {
           wavesurfer.pause();
           isPlaying = false;
