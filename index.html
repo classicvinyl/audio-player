@@ -123,8 +123,16 @@
 
   <script>
     async function loadFiles() {
-      const res = await fetch('https://d2nmhatu4a3eoh.cloudfront.net/files.json');
-      return res.json();
+      try {
+        const res = await fetch('https://uous-audio-player.s3.eu-west-1.amazonaws.com/files.json', {
+          mode: 'cors'
+        });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        return await res.json();
+      } catch (error) {
+        console.error('Error loading files.json:', error);
+        return [];
+      }
     }
 
     function formatTime(seconds) {
