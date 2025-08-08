@@ -289,13 +289,6 @@
             backend: 'MediaElement'
           });
 
-          // --- Debug event listeners added below ---
-
-          wavesurfer.on('error', e => console.error('Wavesurfer error:', e));
-          wavesurfer.on('loading', percent => console.log(`Loading: ${percent}%`));
-          wavesurfer.on('ready', () => console.log('Track ready'));
-          wavesurfer.on('finish', () => console.log('Track finished'));
-
           function retryLoad() {
             if (currentAttempt < MAX_RETRIES) {
               currentAttempt++;
