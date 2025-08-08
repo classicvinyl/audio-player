@@ -123,16 +123,8 @@
 
   <script>
     async function loadFiles() {
-      try {
-        const res = await fetch('https://uous-audio-player.s3.eu-west-1.amazonaws.com/files.json', {
-          mode: 'cors'
-        });
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        return await res.json();
-      } catch (error) {
-        console.error('Error loading files.json:', error);
-        return [];
-      }
+      const res = await fetch('files.json');
+      return res.json();
     }
 
     function formatTime(seconds) {
@@ -296,6 +288,13 @@
             responsive: true,
             backend: 'MediaElement'
           });
+
+          // --- Debug event listeners added below ---
+
+          wavesurfer.on('error', e => console.error('Wavesurfer error:', e));
+          wavesurfer.on('loading', percent => console.log(`Loading: ${percent}%`));
+          wavesurfer.on('ready', () => console.log('Track ready'));
+          wavesurfer.on('finish', () => console.log('Track finished'));
 
           function retryLoad() {
             if (currentAttempt < MAX_RETRIES) {
