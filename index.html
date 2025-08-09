@@ -122,6 +122,10 @@
   </div>
 
   <script>
+    function log(msg) {
+      console.log(`[AudioPlayer] ${msg}`);
+    }
+
     async function loadFiles() {
       const res = await fetch('files.json');
       return res.json();
@@ -217,27 +221,32 @@
         return spinner;
       }
 
-function clearWavesurfer() {
-  if (wavesurfer) {
-    try {
-      wavesurfer.stop();
-      wavesurfer.unAll();
+      function clearWavesurfer() {
+        if (wavesurfer) {
+          try {
+            log('Stopping wavesurfer');
+            wavesurfer.stop();
+            log('Removing all events');
+            wavesurfer.unAll();
 
-      // For Firefox, forcibly pause, remove src, and unload media element before destroy
-      if (wavesurfer.backend && wavesurfer.backend.media) {
-        const media = wavesurfer.backend.media;
-        media.pause();
-        media.removeAttribute('src');
-        media.load();
+            if (wavesurfer.backend && wavesurfer.backend.media) {
+              const media = wavesurfer.backend.media;
+              log('Pausing and unloading media element');
+              media.pause();
+              media.removeAttribute('src');
+              media.load();
+            }
+
+            log('Destroying wavesurfer');
+            wavesurfer.destroy();
+          } catch (e) {
+            log('Error clearing wavesurfer: ' + e);
+          }
+          wavesurfer = null;
+        } else {
+          log('clearWavesurfer called but no wavesurfer instance');
+        }
       }
-
-      wavesurfer.destroy();
-    } catch {
-      // ignore errors
-    }
-    wavesurfer = null;
-  }
-}
 
       function delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
@@ -301,6 +310,7 @@ function clearWavesurfer() {
           function retryLoad() {
             if (currentAttempt < MAX_RETRIES) {
               currentAttempt++;
+              log(`Retrying load for ${tracks[index].file}, attempt ${currentAttempt}`);
               loadTrack(index);
             } else {
               loadingProgressBar.style.display = 'none';
@@ -309,6 +319,8 @@ function clearWavesurfer() {
               setErrorMessage('Error: Unable to load track after multiple attempts.');
             }
           }
+
+          log(`Attempting to load track index ${index}: ${tracks[index].file}`);
 
           currentLoadTimeout = setTimeout(() => {
             if (!didLoad) {
@@ -355,6 +367,7 @@ function clearWavesurfer() {
               }
             });
 
+            log(`Calling wavesurfer.load with URL: ${tracks[index].file}`);
             wavesurfer.load(tracks[index].file);
           });
         });
