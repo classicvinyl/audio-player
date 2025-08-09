@@ -122,7 +122,7 @@
   </div>
 
   <script>
-    let globalWavesurfer = null;
+    let globalWavesurfer = null;  // GLOBAL instance reference
 
     async function loadFiles() {
       const res = await fetch('files.json');
@@ -141,49 +141,42 @@
         : `<svg class="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>`;
     }
 
-    function createSpinner() {
-      const spinner = document.createElement('div');
-      spinner.className = 'loading-spinner';
-      return spinner;
-    }
-
-    function formatTokens(str) {
-      return str.match(/\d+|\D+/g).map(token =>
-        /\d/.test(token) ? parseInt(token, 10) : token.toLowerCase()
-      );
-    }
-
-    async function createPlaylist(name, tracks) {
-      // Destroy old wavesurfer if exists
+    function createPlaylist(name, tracks) {
+      // Destroy any existing Wavesurfer instance before creating new playlist
       if (globalWavesurfer) {
         try {
           globalWavesurfer.stop();
           globalWavesurfer.unAll();
           globalWavesurfer.destroy();
-        } catch {
-          // ignore errors on destroy
-        }
+        } catch {}
         globalWavesurfer = null;
       }
-
-      // Wait a moment to avoid Firefox race condition issues
-      await new Promise(r => setTimeout(r, 100));
 
       const container = document.createElement('div');
       container.className = 'playlist-container';
 
       tracks.sort((a, b) => {
-        const aTokens = formatTokens(a.title);
-        const bTokens = formatTokens(b.title);
+        function tokenize(str) {
+          return str.match(/\d+|\D+/g).map(token =>
+            /\d/.test(token) ? parseInt(token, 10) : token.toLowerCase()
+          );
+        }
+
+        const aTokens = tokenize(a.title);
+        const bTokens = tokenize(b.title);
+
         const len = Math.max(aTokens.length, bTokens.length);
         for (let i = 0; i < len; i++) {
           const aTok = aTokens[i];
           const bTok = bTokens[i];
+
           if (aTok === undefined) return -1;
           if (bTok === undefined) return 1;
+
           if (aTok < bTok) return -1;
           if (aTok > bTok) return 1;
         }
+
         return 0;
       });
 
@@ -226,15 +219,22 @@
       const MAX_RETRIES = 5;
       const LOAD_TIMEOUT = 20000; // 20 seconds
 
+      // Tracks if a load/destroy is in progress
+      let loadingPromise = Promise.resolve();
+
+      function createSpinner() {
+        const spinner = document.createElement('div');
+        spinner.className = 'loading-spinner';
+        return spinner;
+      }
+
       function clearWavesurfer() {
         if (globalWavesurfer) {
           try {
             globalWavesurfer.stop();
             globalWavesurfer.unAll();
             globalWavesurfer.destroy();
-          } catch {
-            // ignore errors on destroy
-          }
+          } catch {}
           globalWavesurfer = null;
         }
       }
@@ -266,95 +266,96 @@
       async function loadTrack(index) {
         if (index < 0 || index >= tracks.length) return;
 
-        if (currentLoadTimeout) {
-          clearTimeout(currentLoadTimeout);
-          currentLoadTimeout = null;
-        }
-
-        clearWavesurfer();
-
-        // Wait a little to avoid Firefox DOMException
-        await delay(150);
-
-        currentTrackIndex = index;
-        currentAttempt = 1;
-        let didLoad = false;
-
-        loadingProgressBar.style.width = '0%';
-        loadingProgressBar.style.display = 'block';
-        waveformContainer.style.opacity = '0.3';
-
-        tracks.forEach((_, i) => removeSpinnerFromTrack(i));
-        addSpinnerToTrack(index);
-
-        globalWavesurfer = WaveSurfer.create({
-          container: waveformContainer,
-          waveColor: 'white',
-          progressColor: 'orange',
-          height: 130,
-          responsive: true,
-          backend: 'MediaElement'
-        });
-
-        function retryLoad() {
-          if (currentAttempt < MAX_RETRIES) {
-            currentAttempt++;
-            loadTrack(index);
-          } else {
-            loadingProgressBar.style.display = 'none';
-            waveformContainer.style.opacity = '1';
-            removeSpinnerFromTrack(index);
-            setErrorMessage('Error: Unable to load track after multiple attempts.');
-          }
-        }
-
-        currentLoadTimeout = setTimeout(() => {
-          if (!didLoad) {
-            retryLoad();
-          }
-        }, LOAD_TIMEOUT);
-
-        return new Promise((resolve) => {
-          globalWavesurfer.once('ready', () => {
-            didLoad = true;
+        loadingPromise = loadingPromise.then(async () => {
+          if (currentLoadTimeout) {
             clearTimeout(currentLoadTimeout);
-            loadingProgressBar.style.width = '100%';
-            setTimeout(() => {
+            currentLoadTimeout = null;
+          }
+
+          if (globalWavesurfer) {
+            clearWavesurfer();
+            await delay(150);
+          }
+
+          currentTrackIndex = index;
+          currentAttempt = 1;
+          let didLoad = false;
+
+          loadingProgressBar.style.width = '0%';
+          loadingProgressBar.style.display = 'block';
+          waveformContainer.style.opacity = '0.3';
+
+          tracks.forEach((_, i) => removeSpinnerFromTrack(i));
+          addSpinnerToTrack(index);
+
+          globalWavesurfer = WaveSurfer.create({
+            container: waveformContainer,
+            waveColor: 'white',
+            progressColor: 'orange',
+            height: 130,
+            responsive: true,
+            backend: 'MediaElement'
+          });
+
+          function retryLoad() {
+            if (currentAttempt < MAX_RETRIES) {
+              currentAttempt++;
+              loadTrack(index);
+            } else {
               loadingProgressBar.style.display = 'none';
               waveformContainer.style.opacity = '1';
-              globalWavesurfer.play();
-              isPlaying = true;
-              updatePlayPauseButton();
-              updateActiveTrack();
               removeSpinnerFromTrack(index);
-              setErrorMessage('');
-              resolve();
-            }, 200);
-          });
-
-          globalWavesurfer.once('error', () => {
-            clearTimeout(currentLoadTimeout);
-            retryLoad();
-            resolve();
-          });
-
-          globalWavesurfer.on('loading', (percent) => {
-            loadingProgressBar.style.width = percent + '%';
-          });
-
-          globalWavesurfer.on('finish', () => {
-            const nextIndex = currentTrackIndex + 1;
-            if (nextIndex < tracks.length) {
-              loadTrack(nextIndex);
-            } else {
-              isPlaying = false;
-              updatePlayPauseButton();
-              updateActiveTrack();
+              setErrorMessage('Error: Unable to load track after multiple attempts.');
             }
-          });
+          }
 
-          console.log(`Calling wavesurfer.load with URL: ${tracks[index].file}`);
-          globalWavesurfer.load(tracks[index].file);
+          currentLoadTimeout = setTimeout(() => {
+            if (!didLoad) {
+              retryLoad();
+            }
+          }, LOAD_TIMEOUT);
+
+          return new Promise((resolve) => {
+            globalWavesurfer.once('ready', () => {
+              didLoad = true;
+              clearTimeout(currentLoadTimeout);
+              loadingProgressBar.style.width = '100%';
+              setTimeout(() => {
+                loadingProgressBar.style.display = 'none';
+                waveformContainer.style.opacity = '1';
+                globalWavesurfer.play();
+                isPlaying = true;
+                updatePlayPauseButton();
+                updateActiveTrack();
+                removeSpinnerFromTrack(index);
+                setErrorMessage('');
+                resolve();
+              }, 200);
+            });
+
+            globalWavesurfer.once('error', () => {
+              clearTimeout(currentLoadTimeout);
+              retryLoad();
+              resolve();
+            });
+
+            globalWavesurfer.on('loading', (percent) => {
+              loadingProgressBar.style.width = percent + '%';
+            });
+
+            globalWavesurfer.on('finish', () => {
+              const nextIndex = currentTrackIndex + 1;
+              if (nextIndex < tracks.length) {
+                loadTrack(nextIndex);
+              } else {
+                isPlaying = false;
+                updatePlayPauseButton();
+                updateActiveTrack();
+              }
+            });
+
+            globalWavesurfer.load(tracks[index].file);
+          });
         });
       }
 
@@ -435,12 +436,12 @@
         nameSpan.className = 'truncate w-full';
         button.appendChild(nameSpan);
 
-        button.addEventListener('click', async () => {
+        button.addEventListener('click', () => {
           selector.innerHTML = '';
           activeContainer.innerHTML = '';
           otherContainer.innerHTML = '';
 
-          const active = await createPlaylist(playlist.playlist, playlist.tracks);
+          const active = createPlaylist(playlist.playlist, playlist.tracks);
           activeContainer.appendChild(active);
 
           const backToList = document.createElement('div');
