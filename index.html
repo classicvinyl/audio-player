@@ -257,6 +257,8 @@
       async function loadTrack(index) {
         if (index < 0 || index >= tracks.length) return;
 
+        console.log(`Attempting to load track index ${index}: ${tracks[index].file}`);
+
         loadingPromise = loadingPromise.then(async () => {
           if (currentLoadTimeout) {
             clearTimeout(currentLoadTimeout);
@@ -292,6 +294,7 @@
           function retryLoad() {
             if (currentAttempt < MAX_RETRIES) {
               currentAttempt++;
+              console.log(`Retrying load for ${tracks[index].file}, attempt ${currentAttempt}`);
               loadTrack(index);
             } else {
               loadingProgressBar.style.display = 'none';
@@ -303,6 +306,7 @@
 
           currentLoadTimeout = setTimeout(() => {
             if (!didLoad) {
+              console.warn(`Load timeout for ${tracks[index].file}`);
               retryLoad();
             }
           }, LOAD_TIMEOUT);
@@ -325,7 +329,8 @@
               }, 200);
             });
 
-            wavesurfer.once('error', () => {
+            wavesurfer.once('error', (e) => {
+              console.error(`Wavesurfer error on ${tracks[index].file}:`, e);
               clearTimeout(currentLoadTimeout);
               retryLoad();
               resolve();
@@ -333,6 +338,7 @@
 
             wavesurfer.on('loading', (percent) => {
               loadingProgressBar.style.width = percent + '%';
+              console.log(`Loading progress for ${tracks[index].file}: ${percent}%`);
             });
 
             wavesurfer.on('finish', () => {
@@ -346,6 +352,7 @@
               }
             });
 
+            console.log(`Calling wavesurfer.load with URL: ${tracks[index].file}`);
             wavesurfer.load(tracks[index].file);
           });
         });
