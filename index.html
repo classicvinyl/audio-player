@@ -217,24 +217,27 @@
         return spinner;
       }
 
-      function clearWavesurfer() {
-        if (wavesurfer) {
-          try {
-            wavesurfer.stop();
-            wavesurfer.unAll();
-            // Explicit unload & reset media src for Firefox fix:
-            if (wavesurfer.backend && wavesurfer.backend.media) {
-              wavesurfer.backend.media.pause();
-              wavesurfer.backend.media.src = '';
-              wavesurfer.backend.media.load();
-            }
-            wavesurfer.destroy();
-          } catch {
-            // ignore errors on destroy
-          }
-          wavesurfer = null;
-        }
+function clearWavesurfer() {
+  if (wavesurfer) {
+    try {
+      wavesurfer.stop();
+      wavesurfer.unAll();
+
+      // For Firefox, forcibly pause, remove src, and unload media element before destroy
+      if (wavesurfer.backend && wavesurfer.backend.media) {
+        const media = wavesurfer.backend.media;
+        media.pause();
+        media.removeAttribute('src');
+        media.load();
       }
+
+      wavesurfer.destroy();
+    } catch {
+      // ignore errors
+    }
+    wavesurfer = null;
+  }
+}
 
       function delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
