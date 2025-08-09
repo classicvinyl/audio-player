@@ -122,8 +122,9 @@
   </div>
 
   <script>
-    // GLOBAL Wavesurfer instance — create once per playlist
-    let globalWavesurfer = null;
+    const BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/'; // <-- YOUR S3 BUCKET URL HERE, with trailing slash
+
+    let globalWavesurfer = null;  // GLOBAL instance reference
 
     async function loadFiles() {
       const res = await fetch('files.json');
@@ -143,9 +144,10 @@
     }
 
     function createPlaylist(name, tracks) {
-      // Clear previous wavesurfer if any (only once per playlist)
       if (globalWavesurfer) {
         try {
+          globalWavesurfer.stop();
+          globalWavesurfer.unAll();
           globalWavesurfer.destroy();
         } catch {}
         globalWavesurfer = null;
@@ -154,29 +156,23 @@
       const container = document.createElement('div');
       container.className = 'playlist-container';
 
-      // Sort tracks naturally by title
       tracks.sort((a, b) => {
         function tokenize(str) {
           return str.match(/\d+|\D+/g).map(token =>
             /\d/.test(token) ? parseInt(token, 10) : token.toLowerCase()
           );
         }
-
         const aTokens = tokenize(a.title);
         const bTokens = tokenize(b.title);
-
         const len = Math.max(aTokens.length, bTokens.length);
         for (let i = 0; i < len; i++) {
           const aTok = aTokens[i];
           const bTok = bTokens[i];
-
           if (aTok === undefined) return -1;
           if (bTok === undefined) return 1;
-
           if (aTok < bTok) return -1;
           if (aTok > bTok) return 1;
         }
-
         return 0;
       });
 
@@ -214,118 +210,153 @@
 
       let currentTrackIndex = -1;
       let isPlaying = false;
-      let loadingTimeout = null;
-      const LOAD_TIMEOUT = 20000; // 20 seconds max load
+      let currentLoadTimeout = null;
+      let currentAttempt = 0;
+      const MAX_RETRIES = 5;
+      const LOAD_TIMEOUT = 20000; // 20 seconds
 
-      // Create Wavesurfer once here per playlist
-      globalWavesurfer = WaveSurfer.create({
-        container: waveformContainer,
-        waveColor: 'white',
-        progressColor: 'orange',
-        height: 130,
-        responsive: true,
-        backend: 'MediaElement',
-      });
+      let loadingPromise = Promise.resolve();
 
-      function clearLoadingTimeout() {
-        if (loadingTimeout) {
-          clearTimeout(loadingTimeout);
-          loadingTimeout = null;
+      function createSpinner() {
+        const spinner = document.createElement('div');
+        spinner.className = 'loading-spinner';
+        return spinner;
+      }
+
+      function clearWavesurfer() {
+        if (globalWavesurfer) {
+          try {
+            globalWavesurfer.stop();
+            globalWavesurfer.unAll();
+            globalWavesurfer.destroy();
+          } catch {}
+          globalWavesurfer = null;
         }
       }
 
-      function showLoadingSpinner(index) {
-        const li = trackList.children[index];
-        if (!li) return;
-        if (li.querySelector('.loading-spinner')) return;
-        const spinner = document.createElement('div');
-        spinner.className = 'loading-spinner';
-        li.insertBefore(spinner, li.querySelector('.duration'));
+      function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
       }
 
-      function removeLoadingSpinner(index) {
+      function removeSpinnerFromTrack(index) {
         const li = trackList.children[index];
         if (!li) return;
         const spinner = li.querySelector('.loading-spinner');
         if (spinner) spinner.remove();
       }
 
-      function setError(text) {
+      function addSpinnerToTrack(index) {
+        const li = trackList.children[index];
+        if (!li) return;
+        if (li.querySelector('.loading-spinner')) return;
+        const spinner = createSpinner();
+        li.insertBefore(spinner, li.querySelector('.duration'));
+      }
+
+      function setErrorMessage(text) {
         errorMessage.textContent = text;
         errorMessage.style.display = text ? 'block' : 'none';
       }
 
+      async function loadTrack(index) {
+        if (index < 0 || index >= tracks.length) return;
+
+        loadingPromise = loadingPromise.then(async () => {
+          if (currentLoadTimeout) {
+            clearTimeout(currentLoadTimeout);
+            currentLoadTimeout = null;
+          }
+
+          if (globalWavesurfer) {
+            clearWavesurfer();
+            await delay(150);
+          }
+
+          currentTrackIndex = index;
+          currentAttempt = 1;
+          let didLoad = false;
+
+          loadingProgressBar.style.width = '0%';
+          loadingProgressBar.style.display = 'block';
+          waveformContainer.style.opacity = '0.3';
+
+          tracks.forEach((_, i) => removeSpinnerFromTrack(i));
+          addSpinnerToTrack(index);
+
+          globalWavesurfer = WaveSurfer.create({
+            container: waveformContainer,
+            waveColor: 'white',
+            progressColor: 'orange',
+            height: 130,
+            responsive: true,
+            backend: 'MediaElement'
+          });
+
+          function retryLoad() {
+            if (currentAttempt < MAX_RETRIES) {
+              currentAttempt++;
+              loadTrack(index);
+            } else {
+              loadingProgressBar.style.display = 'none';
+              waveformContainer.style.opacity = '1';
+              removeSpinnerFromTrack(index);
+              setErrorMessage('Error: Unable to load track after multiple attempts.');
+            }
+          }
+
+          currentLoadTimeout = setTimeout(() => {
+            if (!didLoad) {
+              retryLoad();
+            }
+          }, LOAD_TIMEOUT);
+
+          return new Promise((resolve) => {
+            globalWavesurfer.once('ready', () => {
+              didLoad = true;
+              clearTimeout(currentLoadTimeout);
+              loadingProgressBar.style.width = '100%';
+              setTimeout(() => {
+                loadingProgressBar.style.display = 'none';
+                waveformContainer.style.opacity = '1';
+                globalWavesurfer.play();
+                isPlaying = true;
+                updatePlayPauseButton();
+                updateActiveTrack();
+                removeSpinnerFromTrack(index);
+                setErrorMessage('');
+                resolve();
+              }, 200);
+            });
+
+            globalWavesurfer.once('error', () => {
+              clearTimeout(currentLoadTimeout);
+              retryLoad();
+              resolve();
+            });
+
+            globalWavesurfer.on('loading', (percent) => {
+              loadingProgressBar.style.width = percent + '%';
+            });
+
+            // Removed automatic next track play as per your request
+            // globalWavesurfer.on('finish', () => { ... });
+
+            // ** IMPORTANT CHANGE HERE: prepend BASE_URL to file path **
+            globalWavesurfer.load(BASE_URL + tracks[index].file);
+          });
+        });
+      }
+
       function updateActiveTrack() {
-        for (let i = 0; i < trackList.children.length; i++) {
-          trackList.children[i].classList.toggle('active', i === currentTrackIndex);
-        }
+        trackList.querySelectorAll('li').forEach((el, i) => {
+          el.classList.toggle('active', i === currentTrackIndex);
+        });
       }
 
       function updatePlayPauseButton() {
         playPauseButton.innerHTML = createPlayPauseSVG(isPlaying);
       }
 
-      async function loadTrack(index) {
-        if (index < 0 || index >= tracks.length) return;
-
-        setError('');
-        clearLoadingSpinnerAll();
-        showLoadingSpinner(index);
-        loadingProgressBar.style.width = '0%';
-        loadingProgressBar.style.display = 'block';
-        waveformContainer.style.opacity = '0.3';
-
-        currentTrackIndex = index;
-
-        return new Promise((resolve) => {
-          // Setup loading timeout
-          clearLoadingTimeout();
-          loadingTimeout = setTimeout(() => {
-            setError('Error: Track load timeout.');
-            removeLoadingSpinner(index);
-            loadingProgressBar.style.display = 'none';
-            waveformContainer.style.opacity = '1';
-            resolve();
-          }, LOAD_TIMEOUT);
-
-          // Load track and set up events
-          globalWavesurfer.load(tracks[index].file);
-
-          globalWavesurfer.once('ready', () => {
-            clearLoadingTimeout();
-            loadingProgressBar.style.width = '100%';
-            setTimeout(() => {
-              loadingProgressBar.style.display = 'none';
-              waveformContainer.style.opacity = '1';
-              removeLoadingSpinner(index);
-
-              globalWavesurfer.play();
-              isPlaying = true;
-              updatePlayPauseButton();
-              updateActiveTrack();
-
-              resolve();
-            }, 200);
-          });
-
-          globalWavesurfer.once('error', () => {
-            clearLoadingTimeout();
-            setError('Error: Unable to load track.');
-            removeLoadingSpinner(index);
-            loadingProgressBar.style.display = 'none';
-            waveformContainer.style.opacity = '1';
-            resolve();
-          });
-        });
-      }
-
-      function clearLoadingSpinnerAll() {
-        for (let i = 0; i < trackList.children.length; i++) {
-          removeLoadingSpinner(i);
-        }
-      }
-
-      // Play/pause toggle button
       playPauseButton.addEventListener('click', () => {
         if (!globalWavesurfer) return;
 
@@ -339,57 +370,39 @@
         updatePlayPauseButton();
       });
 
-      // On track finish, play next track automatically
-      globalWavesurfer.on('finish', () => {
-        const next = currentTrackIndex + 1;
-        if (next < tracks.length) {
-          loadTrack(next);
-        } else {
-          isPlaying = false;
-          updatePlayPauseButton();
-          updateActiveTrack();
-        }
-      });
-
-      // Show loading progress bar as track loads
-      globalWavesurfer.on('loading', (percent) => {
-        loadingProgressBar.style.width = percent + '%';
-      });
-
-      // Create track list items with duration and click handler
-      tracks.forEach((track, i) => {
-        const li = document.createElement('li');
-        li.className = 'track-item flex-nowrap overflow-hidden';
+      tracks.forEach((track, index) => {
+        const listItem = document.createElement('li');
+        listItem.className = 'track-item flex-nowrap overflow-hidden';
 
         const nameSpan = document.createElement('span');
         nameSpan.textContent = track.title;
         nameSpan.className = 'truncate w-full pr-2';
-        li.appendChild(nameSpan);
+        listItem.appendChild(nameSpan);
 
         const durationSpan = document.createElement('span');
         durationSpan.className = 'duration';
         durationSpan.textContent = '--:--';
-        li.appendChild(durationSpan);
+        listItem.appendChild(durationSpan);
 
-        // Preload duration via Audio element (no autoplay)
-        const audio = new Audio(track.file);
+        const audio = new Audio(BASE_URL + track.file);
         audio.addEventListener('loadedmetadata', () => {
           durationSpan.textContent = formatTime(audio.duration);
         });
 
-        li.addEventListener('click', () => {
-          if (currentTrackIndex === i && isPlaying) {
+        listItem.addEventListener('click', () => {
+          if (currentTrackIndex === index && isPlaying) {
             globalWavesurfer.pause();
             isPlaying = false;
             updatePlayPauseButton();
-            removeLoadingSpinner(i);
+            removeSpinnerFromTrack(index);
           } else {
-            loadTrack(i);
+            loadTrack(index);
           }
+          updatePlayPauseButton();
           updateActiveTrack();
         });
 
-        trackList.appendChild(li);
+        trackList.appendChild(listItem);
       });
 
       return container;
