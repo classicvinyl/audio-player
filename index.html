@@ -339,8 +339,8 @@
               loadingProgressBar.style.width = percent + '%';
             });
 
-            // ** IMPORTANT CHANGE HERE: prepend BASE_URL to file path **
-            globalWavesurfer.load(BASE_URL + tracks[index].file);
+            // ** IMPORTANT CHANGE HERE: prepend BASE_URL to file path and encode URI **
+            globalWavesurfer.load(encodeURI(BASE_URL + tracks[index].file));
           });
         });
       }
@@ -382,7 +382,8 @@
         durationSpan.textContent = '--:--';
         listItem.appendChild(durationSpan);
 
-        const audio = new Audio(BASE_URL + track.file);
+        // ** IMPORTANT CHANGE HERE: encode the URL for the Audio object too **
+        const audio = new Audio(encodeURI(BASE_URL + track.file));
         audio.addEventListener('loadedmetadata', () => {
           durationSpan.textContent = formatTime(audio.duration);
         });
