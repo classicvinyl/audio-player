@@ -339,8 +339,11 @@
               loadingProgressBar.style.width = percent + '%';
             });
 
-            // ** IMPORTANT CHANGE HERE: prepend BASE_URL to file path and encode URI **
-            globalWavesurfer.load(encodeURI(BASE_URL + tracks[index].file));
+            // ** IMPORTANT CHANGE HERE: prepend BASE_URL and load precomputed waveform JSON **
+            const audioUrl = BASE_URL + tracks[index].file;
+            const jsonWaveformUrl = audioUrl.replace(/\.mp3$/, '.json');
+
+            globalWavesurfer.load(audioUrl, jsonWaveformUrl);
           });
         });
       }
@@ -382,8 +385,7 @@
         durationSpan.textContent = '--:--';
         listItem.appendChild(durationSpan);
 
-        // ** IMPORTANT CHANGE HERE: encode the URL for the Audio object too **
-        const audio = new Audio(encodeURI(BASE_URL + track.file));
+        const audio = new Audio(BASE_URL + track.file);
         audio.addEventListener('loadedmetadata', () => {
           durationSpan.textContent = formatTime(audio.duration);
         });
