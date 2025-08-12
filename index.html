@@ -47,10 +47,20 @@
       text-align: right;
       margin-left: 0.5rem;
     }
-    /* Removed .loading-spinner CSS */
-
-    /* Removed .loading-progress-bar CSS */
-
+    .loading-spinner {
+      border: 3px solid #f3f3f3; /* Light grey */
+      border-top: 3px solid orange; /* Orange */
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      animation: spin 1s linear infinite;
+      margin-left: 8px;
+      flex-shrink: 0;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
     .waveform-container {
       position: relative;
       height: 130px;
@@ -59,6 +69,16 @@
       border-radius: 0.5rem;
       border-color: #808080;
       transition: opacity 0.3s ease;
+    }
+    .loading-progress-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 6px;
+      width: 0%;
+      background-color: orange;
+      border-radius: 0 0 0.5rem 0.5rem;
+      transition: width 0.2s ease;
     }
     .error-message {
       color: #ff6b6b;
@@ -175,7 +195,9 @@
       waveformContainer.className = 'waveform-container';
       container.appendChild(waveformContainer);
 
-      // Removed loadingProgressBar element here
+      const loadingProgressBar = document.createElement('div');
+      loadingProgressBar.className = 'loading-progress-bar';
+      waveformContainer.appendChild(loadingProgressBar);
 
       const errorMessage = document.createElement('div');
       errorMessage.className = 'error-message';
@@ -195,7 +217,11 @@
 
       let loadingPromise = Promise.resolve();
 
-      // Removed createSpinner(), addSpinnerToTrack(), removeSpinnerFromTrack() functions
+      function createSpinner() {
+        const spinner = document.createElement('div');
+        spinner.className = 'loading-spinner';
+        return spinner;
+      }
 
       function clearWavesurfer() {
         if (globalWavesurfer) {
@@ -210,6 +236,21 @@
 
       function delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      function removeSpinnerFromTrack(index) {
+        const li = trackList.children[index];
+        if (!li) return;
+        const spinner = li.querySelector('.loading-spinner');
+        if (spinner) spinner.remove();
+      }
+
+      function addSpinnerToTrack(index) {
+        const li = trackList.children[index];
+        if (!li) return;
+        if (li.querySelector('.loading-spinner')) return;
+        const spinner = createSpinner();
+        li.insertBefore(spinner, li.querySelector('.duration'));
       }
 
       function setErrorMessage(text) {
@@ -235,11 +276,12 @@
           currentAttempt = 1;
           let didLoad = false;
 
-          // Removed loadingProgressBar.style and spinner calls
-
+          loadingProgressBar.style.width = '0%';
+          loadingProgressBar.style.display = 'block';
           waveformContainer.style.opacity = '0.3';
 
-          // Removed calls to removeSpinnerFromTrack() and addSpinnerToTrack()
+          tracks.forEach((_, i) => removeSpinnerFromTrack(i));
+          addSpinnerToTrack(index);
 
           globalWavesurfer = WaveSurfer.create({
             container: waveformContainer,
@@ -255,9 +297,9 @@
               currentAttempt++;
               loadTrack(index);
             } else {
-              // Removed loadingProgressBar.style.display = 'none';
+              loadingProgressBar.style.display = 'none';
               waveformContainer.style.opacity = '1';
-              // Removed removeSpinnerFromTrack(index);
+              removeSpinnerFromTrack(index);
               setErrorMessage('Error: Unable to load track after multiple attempts.');
             }
           }
@@ -287,15 +329,17 @@
             globalWavesurfer.once('ready', () => {
               didLoad = true;
               clearTimeout(currentLoadTimeout);
-              // Removed loadingProgressBar.style.width = '100%';
-              // Removed loadingProgressBar.style.display = 'none';
-              waveformContainer.style.opacity = '1';
-              globalWavesurfer.play();
-              isPlaying = true;
-              updatePlayPauseButton();
-              updateActiveTrack();
-              // Removed removeSpinnerFromTrack(index);
-              setErrorMessage('');
+              loadingProgressBar.style.width = '100%';
+              setTimeout(() => {
+                loadingProgressBar.style.display = 'none';
+                waveformContainer.style.opacity = '1';
+                globalWavesurfer.play();
+                isPlaying = true;
+                updatePlayPauseButton();
+                updateActiveTrack();
+                removeSpinnerFromTrack(index);
+                setErrorMessage('');
+              }, 200);
             });
 
             globalWavesurfer.once('error', () => {
@@ -303,7 +347,22 @@
               retryLoad();
             });
 
-            // Removed globalWavesurfer.on('loading', ...);
+            globalWavesurfer.on('loading', (percent) => {
+              loadingProgressBar.style.width = percent + '%';
+            });
+
+            // NEW: Auto play next track on finish — STOP at last track (only change)
+            globalWavesurfer.on('finish', () => {
+              let nextIndex = currentTrackIndex + 1;
+              if (nextIndex < tracks.length) {
+                loadTrack(nextIndex);
+              } else {
+                // at last track, stop and update UI
+                isPlaying = false;
+                updatePlayPauseButton();
+                updateActiveTrack();
+              }
+            });
 
             // Load the audio AND pass precomputed peaks
             globalWavesurfer.load(BASE_URL + tracks[index].file, peaks);
@@ -361,7 +420,7 @@
             globalWavesurfer.pause();
             isPlaying = false;
             updatePlayPauseButton();
-            // Removed removeSpinnerFromTrack(index);
+            removeSpinnerFromTrack(index);
           } else {
             loadTrack(index);
           }
