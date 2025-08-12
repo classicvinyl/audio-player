@@ -90,6 +90,58 @@
     .playlist-link:hover {
       text-decoration: underline;
     }
+
+    /*
+      === MOBILE RESPONSIVENESS ADJUSTMENTS (ONLY THESE CSS RULES ADDED) ===
+
+      Goals:
+      - Keep playlist name and play/pause button on a single line (no wrapping).
+      - Allow the playlist title to shrink and show ellipsis when too long.
+      - Ensure track name spans inside .track-item can shrink and truncate.
+      - Slight responsive size tweak for very small screens to help fit.
+    */
+
+    /* Force header flex container not to wrap (override Tailwind's flex-wrap) */
+    .playlist-container .flex.flex-wrap {
+      flex-wrap: nowrap !important;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Make playlist title behave as a flexible item and truncate if needed */
+    .playlist-container .playlist-title {
+      flex: 1 1 auto;
+      min-width: 0; /* important so it can shrink inside flex */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-right: 0.5rem;
+    }
+
+    /* Ensure the play button doesn't shrink (keeps size) */
+    .playlist-container .play-pause-button {
+      flex: 0 0 auto;
+    }
+
+    /* Allow name spans inside track items to shrink and truncate */
+    .track-item .truncate {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Small screens: slightly reduce playlist title size to help fit */
+    @media (max-width: 480px) {
+      .playlist-container .playlist-title {
+        font-size: 1.25rem;
+      }
+      .playlist-container .play-pause-button {
+        width: 44px;
+        height: 44px;
+      }
+    }
+
   </style>
 </head>
 <body>
