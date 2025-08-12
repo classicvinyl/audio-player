@@ -142,6 +142,24 @@
       }
     }
 
+    /*
+      === MARQUEE (only animate when truncated) ===
+      Minimal CSS required for marquee animation. JS will add/remove the
+      classes and dynamically set --marquee-end and --marquee-duration.
+    */
+    .auto-marquee.animate {
+      animation-name: marquee;
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+      animation-duration: var(--marquee-duration, 8s);
+      will-change: transform;
+    }
+
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(var(--marquee-end, -100%)); }
+    }
+
   </style>
 </head>
 <body>
@@ -173,7 +191,40 @@
         : `<svg class="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>`;
     }
 
-    function createPlaylist(name, tracks) {
+    /*
+      === NEW HELPER: applyMarquee(container)
+      Adds/removes the .auto-marquee.animate class to elements inside the given
+      container (or document fragment) when their text is actually truncated.
+      This is the only functional change: long titles/track-names will only
+      animate if el.scrollWidth > el.clientWidth.
+    */
+    function applyMarquee(container) {
+      if (!container) return;
+      // Select playlist title(s) and track name spans with 'truncate'
+      const targets = container.querySelectorAll('.playlist-title, .track-item .truncate');
+      targets.forEach(el => {
+        // Force browser layout calc
+        const clientW = el.clientWidth;
+        const scrollW = el.scrollWidth;
+
+        if (scrollW > clientW + 1) {
+          // truncated -> enable marquee
+          const overflow = scrollW - clientW;
+          // duration based on overflow: approx 60px/sec; min 4s
+          const duration = Math.max(4, Math.ceil(overflow / 60));
+          el.style.setProperty('--marquee-end', `-${overflow}px`);
+          el.style.setProperty('--marquee-duration', `${duration}s`);
+          el.classList.add('auto-marquee', 'animate');
+        } else {
+          // not truncated -> remove marquee
+          el.classList.remove('auto-marquee', 'animate');
+          el.style.removeProperty('--marquee-end');
+          el.style.removeProperty('--marquee-duration');
+        }
+      });
+    }
+
+    function clearWavesurferInstance() {
       if (globalWavesurfer) {
         try {
           globalWavesurfer.stop();
@@ -182,6 +233,10 @@
         } catch {}
         globalWavesurfer = null;
       }
+    }
+
+    function createPlaylist(name, tracks) {
+      clearWavesurferInstance();
 
       const container = document.createElement('div');
       container.className = 'playlist-container';
@@ -225,8 +280,6 @@
       waveformContainer.className = 'waveform-container';
       container.appendChild(waveformContainer);
 
-      // Removed loadingProgressBar element
-
       const errorMessage = document.createElement('div');
       errorMessage.className = 'error-message';
       errorMessage.style.display = 'none';
@@ -245,24 +298,9 @@
 
       let loadingPromise = Promise.resolve();
 
-      // Removed createSpinner() function
-
-      function clearWavesurfer() {
-        if (globalWavesurfer) {
-          try {
-            globalWavesurfer.stop();
-            globalWavesurfer.unAll();
-            globalWavesurfer.destroy();
-          } catch {}
-          globalWavesurfer = null;
-        }
-      }
-
       function delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
       }
-
-      // Removed removeSpinnerFromTrack() and addSpinnerToTrack()
 
       function setErrorMessage(text) {
         errorMessage.textContent = text;
@@ -279,7 +317,7 @@
           }
 
           if (globalWavesurfer) {
-            clearWavesurfer();
+            clearWavesurferInstance();
             await delay(150);
           }
 
@@ -287,10 +325,7 @@
           currentAttempt = 1;
           let didLoad = false;
 
-          // Removed loadingProgressBar style updates
           waveformContainer.style.opacity = '0.3';
-
-          // Removed removing/adding spinners on tracks
 
           globalWavesurfer = WaveSurfer.create({
             container: waveformContainer,
@@ -306,9 +341,7 @@
               currentAttempt++;
               loadTrack(index);
             } else {
-              // Removed loadingProgressBar hide
               waveformContainer.style.opacity = '1';
-              // Removed spinner removal
               setErrorMessage('Error: Unable to load track after multiple attempts.');
             }
           }
@@ -319,7 +352,6 @@
             }
           }, LOAD_TIMEOUT);
 
-          // Fetch precomputed waveform JSON, normalize data and load peaks
           const waveformJSONUrl = BASE_URL + tracks[index].file.replace(/\.mp3$/, '.json');
           try {
             const response = await fetch(waveformJSONUrl);
@@ -338,14 +370,12 @@
             globalWavesurfer.once('ready', () => {
               didLoad = true;
               clearTimeout(currentLoadTimeout);
-              // Removed loadingProgressBar width 100% and hide
               setTimeout(() => {
                 waveformContainer.style.opacity = '1';
                 globalWavesurfer.play();
                 isPlaying = true;
                 updatePlayPauseButton();
                 updateActiveTrack();
-                // Removed spinner removal
                 setErrorMessage('');
               }, 200);
             });
@@ -354,8 +384,6 @@
               clearTimeout(currentLoadTimeout);
               retryLoad();
             });
-
-            // Removed globalWavesurfer.on('loading', ...) handler
 
             globalWavesurfer.on('finish', () => {
               let nextIndex = currentTrackIndex + 1;
@@ -424,7 +452,6 @@
             globalWavesurfer.pause();
             isPlaying = false;
             updatePlayPauseButton();
-            // Removed spinner removal
           } else {
             loadTrack(index);
           }
@@ -434,6 +461,9 @@
 
         trackList.appendChild(listItem);
       });
+
+      // expose a small helper to apply marquee for this playlist container
+      container.applyMarquee = () => applyMarquee(container);
 
       return container;
     }
@@ -462,6 +492,12 @@
           const active = createPlaylist(playlist.playlist, playlist.tracks);
           activeContainer.appendChild(active);
 
+          // apply marquee to the newly-created playlist (playlist title + tracks)
+          if (typeof active.applyMarquee === 'function') {
+            // small timeout to allow layout/paint before measuring
+            setTimeout(() => active.applyMarquee(), 50);
+          }
+
           const backToList = document.createElement('div');
           backToList.className = 'track-item active inline-block px-4 py-2 rounded';
           backToList.style.cursor = 'pointer';
@@ -477,6 +513,16 @@
         });
 
         selector.appendChild(button);
+      });
+
+      // After building the selector, apply marquee to playlist-selector names (if truncated)
+      setTimeout(() => applyMarquee(selector), 50);
+
+      // Recompute on resize for selector and active playlist
+      window.addEventListener('resize', () => {
+        applyMarquee(document.getElementById('playlist-selector'));
+        const active = document.getElementById('active-playlist').firstElementChild;
+        if (active) applyMarquee(active);
       });
     }
 
