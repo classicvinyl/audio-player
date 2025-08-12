@@ -1,138 +1,486 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Audio Player</title>
-<script src="https://unpkg.com/wavesurfer.js"></script>
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-  body { background-color: #1a1a1a; color: #f0f0f0; }
-  .scrolling {
-    overflow: hidden;
-    white-space: nowrap;
-    display: inline-block;
-    vertical-align: middle;
-  }
-  .scrolling.scroll {
-    animation: scroll-text 8s linear infinite;
-  }
-  @keyframes scroll-text {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-100%); }
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>uous jamz</title>
+  <script src="https://unpkg.com/wavesurfer.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #2a1a26;
+    }
+    .playlist-container {
+      background-color: #000;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      border-color: #808080;
+      margin-bottom: 2rem;
+    }
+    .playlist-title {
+      color: grey;
+      font-weight: bold;
+      font-size: 2rem;
+      margin: 0;
+    }
+    .track-item {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      color: white;
+      transition: background-color 0.3s;
+    }
+    .track-item:hover {
+      background-color: #3c2a36;
+    }
+    .track-item.active {
+      background-color: grey;
+      font-weight: bold;
+    }
+    .duration {
+      color: #bbb;
+      font-size: 0.85rem;
+      min-width: 40px;
+      text-align: right;
+      margin-left: 0.5rem;
+    }
+    /* Removed .loading-spinner CSS */
+    /* Removed .loading-progress-bar CSS */
+    .waveform-container {
+      position: relative;
+      height: 130px;
+      margin-bottom: 0.5rem;
+      background-color: #000;
+      border-radius: 0.5rem;
+      border-color: #808080;
+      transition: opacity 0.3s ease;
+    }
+    .error-message {
+      color: #ff6b6b;
+      font-weight: bold;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+    .play-pause-button {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: orange;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.3s;
+      flex-shrink: 0;
+    }
+    .play-icon, .pause-icon {
+      fill: white;
+      width: 30px;
+      height: 30px;
+    }
+    .playlist-link {
+      color: white;
+      cursor: pointer;
+      padding: 0.25rem 0;
+      display: block;
+    }
+    .playlist-link:hover {
+      text-decoration: underline;
+    }
+
+    /*
+      === MOBILE RESPONSIVENESS ADJUSTMENTS (ONLY THESE CSS RULES ADDED) ===
+
+      Goals:
+      - Keep playlist name and play/pause button on a single line (no wrapping).
+      - Allow the playlist title to shrink and show ellipsis when too long.
+      - Ensure track name spans inside .track-item can shrink and truncate.
+      - Slight responsive size tweak for very small screens to help fit.
+    */
+
+    /* Force header flex container not to wrap (override Tailwind's flex-wrap) */
+    .playlist-container .flex.flex-wrap {
+      flex-wrap: nowrap !important;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Make playlist title behave as a flexible item and truncate if needed */
+    .playlist-container .playlist-title {
+      flex: 1 1 auto;
+      min-width: 0; /* important so it can shrink inside flex */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-right: 0.5rem;
+    }
+
+    /* Ensure the play button doesn't shrink (keeps size) */
+    .playlist-container .play-pause-button {
+      flex: 0 0 auto;
+    }
+
+    /* Allow name spans inside track items to shrink and truncate */
+    .track-item .truncate {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Small screens: slightly reduce playlist title size to help fit */
+    @media (max-width: 480px) {
+      .playlist-container .playlist-title {
+        font-size: 1.25rem;
+      }
+      .playlist-container .play-pause-button {
+        width: 44px;
+        height: 44px;
+      }
+    }
+
+  </style>
 </head>
-<body class="p-4">
+<body>
+  <div class="p-6">
+    <div id="playlist-selector" class="mb-8 space-y-2"></div>
+    <div id="active-playlist"></div>
+    <div id="other-playlists" class="mt-12 space-y-2"></div>
+  </div>
 
-<div id="playlists" class="space-y-8"></div>
+  <script>
+    const BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/';
 
-<script>
-fetch('files.json')
-  .then(response => response.json())
-  .then(playlists => {
-    const playlistsContainer = document.getElementById('playlists');
+    let globalWavesurfer = null;
 
-    playlists.forEach((playlist, playlistIndex) => {
-      const playlistDiv = document.createElement('div');
+    async function loadFiles() {
+      const res = await fetch(BASE_URL + 'files.json', {cache: 'no-cache'});
+      return res.json();
+    }
 
-      const playlistHeader = document.createElement('div');
-      playlistHeader.className = "flex items-center space-x-4 mb-2";
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+      return `${mins}:${secs}`;
+    }
 
-      const playPauseBtn = document.createElement('button');
-      playPauseBtn.textContent = '▶';
-      playPauseBtn.className = "bg-gray-700 px-3 py-1 rounded";
+    function createPlayPauseSVG(isPlaying) {
+      return isPlaying
+        ? `<svg class="pause-icon" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>`
+        : `<svg class="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>`;
+    }
 
-      const playlistTitle = document.createElement('span');
-      playlistTitle.className = "scrolling font-bold text-lg max-w-[70%]";
-      playlistTitle.textContent = playlist.playlist;
+    function createPlaylist(name, tracks) {
+      if (globalWavesurfer) {
+        try {
+          globalWavesurfer.stop();
+          globalWavesurfer.unAll();
+          globalWavesurfer.destroy();
+        } catch {}
+        globalWavesurfer = null;
+      }
 
-      playlistHeader.appendChild(playPauseBtn);
-      playlistHeader.appendChild(playlistTitle);
+      const container = document.createElement('div');
+      container.className = 'playlist-container';
 
-      const waveformDiv = document.createElement('div');
-      waveformDiv.id = `waveform-${playlistIndex}`;
-      waveformDiv.className = "w-full h-16 mb-4";
+      tracks.sort((a, b) => {
+        function tokenize(str) {
+          return str.match(/\d+|\D+/g).map(token =>
+            /\d/.test(token) ? parseInt(token, 10) : token.toLowerCase()
+          );
+        }
+        const aTokens = tokenize(a.title);
+        const bTokens = tokenize(b.title);
+        const len = Math.max(aTokens.length, bTokens.length);
+        for (let i = 0; i < len; i++) {
+          const aTok = aTokens[i];
+          const bTok = bTokens[i];
+          if (aTok === undefined) return -1;
+          if (bTok === undefined) return 1;
+          if (aTok < bTok) return -1;
+          if (aTok > bTok) return 1;
+        }
+        return 0;
+      });
+
+      const header = document.createElement('div');
+      header.className = 'flex flex-wrap justify-between items-center gap-2 mb-4';
+
+      const title = document.createElement('h2');
+      title.className = 'playlist-title m-0';
+      title.textContent = name;
+      header.appendChild(title);
+
+      const playPauseButton = document.createElement('div');
+      playPauseButton.className = 'play-pause-button ml-auto';
+      playPauseButton.innerHTML = createPlayPauseSVG(false);
+      header.appendChild(playPauseButton);
+
+      container.appendChild(header);
+
+      const waveformContainer = document.createElement('div');
+      waveformContainer.className = 'waveform-container';
+      container.appendChild(waveformContainer);
+
+      // Removed loadingProgressBar element
+
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'error-message';
+      errorMessage.style.display = 'none';
+      container.appendChild(errorMessage);
 
       const trackList = document.createElement('ul');
-      trackList.className = "space-y-1";
+      trackList.className = 'space-y-2';
+      container.appendChild(trackList);
 
-      let wavesurfer = WaveSurfer.create({
-        container: waveformDiv,
-        waveColor: '#555',
-        progressColor: '#ccc',
-        height: 64,
-      });
+      let currentTrackIndex = -1;
+      let isPlaying = false;
+      let currentLoadTimeout = null;
+      let currentAttempt = 0;
+      const MAX_RETRIES = 5;
+      const LOAD_TIMEOUT = 20000; // 20 seconds
 
-      let currentTrackIndex = 0;
+      let loadingPromise = Promise.resolve();
 
-      function loadTrack(index) {
-        const track = playlist.tracks[index];
-        wavesurfer.load(track.file);
-        highlightCurrentTrack(index);
+      // Removed createSpinner() function
+
+      function clearWavesurfer() {
+        if (globalWavesurfer) {
+          try {
+            globalWavesurfer.stop();
+            globalWavesurfer.unAll();
+            globalWavesurfer.destroy();
+          } catch {}
+          globalWavesurfer = null;
+        }
       }
 
-      function highlightCurrentTrack(index) {
-        Array.from(trackList.children).forEach((li, i) => {
-          li.className = i === index ? "text-yellow-400" : "";
+      function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      // Removed removeSpinnerFromTrack() and addSpinnerToTrack()
+
+      function setErrorMessage(text) {
+        errorMessage.textContent = text;
+        errorMessage.style.display = text ? 'block' : 'none';
+      }
+
+      async function loadTrack(index) {
+        if (index < 0 || index >= tracks.length) return;
+
+        loadingPromise = loadingPromise.then(async () => {
+          if (currentLoadTimeout) {
+            clearTimeout(currentLoadTimeout);
+            currentLoadTimeout = null;
+          }
+
+          if (globalWavesurfer) {
+            clearWavesurfer();
+            await delay(150);
+          }
+
+          currentTrackIndex = index;
+          currentAttempt = 1;
+          let didLoad = false;
+
+          // Removed loadingProgressBar style updates
+          waveformContainer.style.opacity = '0.3';
+
+          // Removed removing/adding spinners on tracks
+
+          globalWavesurfer = WaveSurfer.create({
+            container: waveformContainer,
+            waveColor: 'white',
+            progressColor: 'orange',
+            height: 130,
+            responsive: true,
+            backend: 'MediaElement'
+          });
+
+          function retryLoad() {
+            if (currentAttempt < MAX_RETRIES) {
+              currentAttempt++;
+              loadTrack(index);
+            } else {
+              // Removed loadingProgressBar hide
+              waveformContainer.style.opacity = '1';
+              // Removed spinner removal
+              setErrorMessage('Error: Unable to load track after multiple attempts.');
+            }
+          }
+
+          currentLoadTimeout = setTimeout(() => {
+            if (!didLoad) {
+              retryLoad();
+            }
+          }, LOAD_TIMEOUT);
+
+          // Fetch precomputed waveform JSON, normalize data and load peaks
+          const waveformJSONUrl = BASE_URL + tracks[index].file.replace(/\.mp3$/, '.json');
+          try {
+            const response = await fetch(waveformJSONUrl);
+            if (!response.ok) throw new Error('Waveform JSON not found');
+            const waveformData = await response.json();
+
+            // Defensive fix: flatten and normalize peaks data
+            const rawData = waveformData.data;
+            const flatData = Array.isArray(rawData) ? rawData.flat(Infinity) : [];
+            const peaks = flatData.map(v => v / 255);
+
+            if (!peaks || peaks.length === 0) {
+              throw new Error('Peaks array empty or invalid');
+            }
+
+            globalWavesurfer.once('ready', () => {
+              didLoad = true;
+              clearTimeout(currentLoadTimeout);
+              // Removed loadingProgressBar width 100% and hide
+              setTimeout(() => {
+                waveformContainer.style.opacity = '1';
+                globalWavesurfer.play();
+                isPlaying = true;
+                updatePlayPauseButton();
+                updateActiveTrack();
+                // Removed spinner removal
+                setErrorMessage('');
+              }, 200);
+            });
+
+            globalWavesurfer.once('error', () => {
+              clearTimeout(currentLoadTimeout);
+              retryLoad();
+            });
+
+            // Removed globalWavesurfer.on('loading', ...) handler
+
+            globalWavesurfer.on('finish', () => {
+              let nextIndex = currentTrackIndex + 1;
+              if (nextIndex < tracks.length) {
+                loadTrack(nextIndex);
+              } else {
+                isPlaying = false;
+                updatePlayPauseButton();
+                updateActiveTrack();
+              }
+            });
+
+            // Load the audio AND pass precomputed peaks
+            globalWavesurfer.load(BASE_URL + tracks[index].file, peaks);
+
+          } catch (err) {
+            retryLoad();
+          }
         });
       }
 
-      function playNextTrack() {
-        if (currentTrackIndex < playlist.tracks.length - 1) {
-          currentTrackIndex++;
-          loadTrack(currentTrackIndex);
-          wavesurfer.play();
-        }
+      function updateActiveTrack() {
+        trackList.querySelectorAll('li').forEach((el, i) => {
+          el.classList.toggle('active', i === currentTrackIndex);
+        });
       }
 
-      wavesurfer.on('finish', playNextTrack);
+      function updatePlayPauseButton() {
+        playPauseButton.innerHTML = createPlayPauseSVG(isPlaying);
+      }
 
-      playPauseBtn.addEventListener('click', () => {
-        if (wavesurfer.isPlaying()) {
-          wavesurfer.pause();
-          playPauseBtn.textContent = '▶';
+      playPauseButton.addEventListener('click', () => {
+        if (!globalWavesurfer) return;
+
+        if (isPlaying) {
+          globalWavesurfer.pause();
+          isPlaying = false;
         } else {
-          wavesurfer.play();
-          playPauseBtn.textContent = '⏸';
+          globalWavesurfer.play();
+          isPlaying = true;
         }
+        updatePlayPauseButton();
       });
 
-      playlist.tracks.forEach((track, trackIndex) => {
-        const li = document.createElement('li');
-        li.textContent = track.title;
-        li.className = "scrolling cursor-pointer max-w-full inline-block";
-        li.addEventListener('click', () => {
-          currentTrackIndex = trackIndex;
-          loadTrack(currentTrackIndex);
-          wavesurfer.play();
-          playPauseBtn.textContent = '⏸';
+      tracks.forEach((track, index) => {
+        const listItem = document.createElement('li');
+        listItem.className = 'track-item flex-nowrap overflow-hidden';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = track.title;
+        nameSpan.className = 'truncate w-full pr-2';
+        listItem.appendChild(nameSpan);
+
+        const durationSpan = document.createElement('span');
+        durationSpan.className = 'duration';
+        durationSpan.textContent = '--:--';
+        listItem.appendChild(durationSpan);
+
+        const audio = new Audio(BASE_URL + track.file);
+        audio.addEventListener('loadedmetadata', () => {
+          durationSpan.textContent = formatTime(audio.duration);
         });
-        trackList.appendChild(li);
+
+        listItem.addEventListener('click', () => {
+          if (currentTrackIndex === index && isPlaying) {
+            globalWavesurfer.pause();
+            isPlaying = false;
+            updatePlayPauseButton();
+            // Removed spinner removal
+          } else {
+            loadTrack(index);
+          }
+          updatePlayPauseButton();
+          updateActiveTrack();
+        });
+
+        trackList.appendChild(listItem);
       });
 
-      playlistDiv.appendChild(playlistHeader);
-      playlistDiv.appendChild(waveformDiv);
-      playlistDiv.appendChild(trackList);
-      playlistsContainer.appendChild(playlistDiv);
+      return container;
+    }
 
-      loadTrack(currentTrackIndex);
-    });
+    async function init() {
+      const files = await loadFiles();
+      const selector = document.getElementById('playlist-selector');
+      const activeContainer = document.getElementById('active-playlist');
+      const otherContainer = document.getElementById('other-playlists');
 
-    // Apply scroll animation only if text is truncated
-    function updateScrolling() {
-      document.querySelectorAll('.scrolling').forEach(el => {
-        if (el.scrollWidth > el.clientWidth) {
-          el.classList.add('scroll');
-        } else {
-          el.classList.remove('scroll');
-        }
+      files.forEach((playlist) => {
+        const button = document.createElement('div');
+        button.className = 'track-item active flex-nowrap overflow-hidden';
+        button.style.cursor = 'pointer';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = playlist.playlist;
+        nameSpan.className = 'truncate w-full';
+        button.appendChild(nameSpan);
+
+        button.addEventListener('click', () => {
+          selector.innerHTML = '';
+          activeContainer.innerHTML = '';
+          otherContainer.innerHTML = '';
+
+          const active = createPlaylist(playlist.playlist, playlist.tracks);
+          activeContainer.appendChild(active);
+
+          const backToList = document.createElement('div');
+          backToList.className = 'track-item active inline-block px-4 py-2 rounded';
+          backToList.style.cursor = 'pointer';
+
+          const backText = document.createElement('span');
+          backText.textContent = 'PLAYLISTS';
+          backText.className = 'truncate px-4 py-2';
+          backToList.appendChild(backText);
+
+          backToList.addEventListener('click', () => location.reload());
+
+          otherContainer.appendChild(backToList);
+        });
+
+        selector.appendChild(button);
       });
     }
 
-    window.addEventListener('resize', updateScrolling);
-    updateScrolling();
-  });
-</script>
+    init();
+  </script>
 </body>
 </html>
