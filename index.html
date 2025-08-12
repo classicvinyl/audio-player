@@ -122,12 +122,11 @@
   </div>
 
   <script>
-    const BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/'; // <-- YOUR S3 BUCKET URL HERE, with trailing slash
+    const BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/';
 
-    let globalWavesurfer = null;  // GLOBAL instance reference
+    let globalWavesurfer = null;
 
     async function loadFiles() {
-      // Changed fetch from relative to full S3 URL:
       const res = await fetch(BASE_URL + 'files.json', {cache: 'no-cache'});
       return res.json();
     }
@@ -311,7 +310,22 @@
             }
           }, LOAD_TIMEOUT);
 
-          return new Promise((resolve) => {
+          // Fetch precomputed waveform JSON, normalize data and load peaks
+          const waveformJSONUrl = BASE_URL + tracks[index].file.replace(/\.mp3$/, '.json');
+          try {
+            const response = await fetch(waveformJSONUrl);
+            if (!response.ok) throw new Error('Waveform JSON not found');
+            const waveformData = await response.json();
+
+            // Defensive fix: flatten and normalize peaks data
+            const rawData = waveformData.data;
+            const flatData = Array.isArray(rawData) ? rawData.flat(Infinity) : [];
+            const peaks = flatData.map(v => v / 255);
+
+            if (!peaks || peaks.length === 0) {
+              throw new Error('Peaks array empty or invalid');
+            }
+
             globalWavesurfer.once('ready', () => {
               didLoad = true;
               clearTimeout(currentLoadTimeout);
@@ -325,26 +339,24 @@
                 updateActiveTrack();
                 removeSpinnerFromTrack(index);
                 setErrorMessage('');
-                resolve();
               }, 200);
             });
 
             globalWavesurfer.once('error', () => {
               clearTimeout(currentLoadTimeout);
               retryLoad();
-              resolve();
             });
 
             globalWavesurfer.on('loading', (percent) => {
               loadingProgressBar.style.width = percent + '%';
             });
 
-            // ** IMPORTANT CHANGE HERE: prepend BASE_URL and load precomputed waveform JSON **
-            const audioUrl = BASE_URL + tracks[index].file;
-            const jsonWaveformUrl = audioUrl.replace(/\.mp3$/, '.json');
+            // Load the audio AND pass precomputed peaks
+            globalWavesurfer.load(BASE_URL + tracks[index].file, peaks);
 
-            globalWavesurfer.load(audioUrl, jsonWaveformUrl);
-          });
+          } catch (err) {
+            retryLoad();
+          }
         });
       }
 
