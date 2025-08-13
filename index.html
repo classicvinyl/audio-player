@@ -47,8 +47,6 @@
       text-align: right;
       margin-left: 0.5rem;
     }
-    /* Removed .loading-spinner CSS */
-    /* Removed .loading-progress-bar CSS */
     .waveform-container {
       position: relative;
       height: 130px;
@@ -90,48 +88,29 @@
     .playlist-link:hover {
       text-decoration: underline;
     }
-
-    /*
-      === MOBILE RESPONSIVENESS ADJUSTMENTS (ONLY THESE CSS RULES ADDED) ===
-
-      Goals:
-      - Keep playlist name and play/pause button on a single line (no wrapping).
-      - Allow the playlist title to shrink and show ellipsis when too long.
-      - Ensure track name spans inside .track-item can shrink and truncate.
-      - Slight responsive size tweak for very small screens to help fit.
-    */
-
-    /* Force header flex container not to wrap (override Tailwind's flex-wrap) */
+    /* MOBILE RESPONSIVENESS ADJUSTMENTS */
     .playlist-container .flex.flex-wrap {
       flex-wrap: nowrap !important;
       align-items: center;
       gap: 0.5rem;
     }
-
-    /* Make playlist title behave as a flexible item and truncate if needed */
     .playlist-container .playlist-title {
       flex: 1 1 auto;
-      min-width: 0; /* important so it can shrink inside flex */
+      min-width: 0;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       margin-right: 0.5rem;
     }
-
-    /* Ensure the play button doesn't shrink (keeps size) */
     .playlist-container .play-pause-button {
       flex: 0 0 auto;
     }
-
-    /* Allow name spans inside track items to shrink and truncate */
     .track-item .truncate {
       min-width: 0;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-
-    /* Small screens: slightly reduce playlist title size to help fit */
     @media (max-width: 480px) {
       .playlist-container .playlist-title {
         font-size: 1.25rem;
@@ -141,18 +120,25 @@
         height: 44px;
       }
     }
-
   </style>
 </head>
 <body>
   <div class="p-6">
+    <!-- PLAYLISTS HEADING -->
+    <h2 class="playlist-title mb-2">PLAYLISTS</h2>
     <div id="playlist-selector" class="mb-8 space-y-2"></div>
+
+    <!-- G-DRIVE SECTION -->
+    <h2 class="playlist-title mb-2">G-DRIVE</h2>
+    <div id="gdrive-section" class="mb-8 space-y-2"></div>
+
     <div id="active-playlist"></div>
     <div id="other-playlists" class="mt-12 space-y-2"></div>
   </div>
 
   <script>
     const BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/';
+    const PUBLIC_DRIVE_JSON = 'https://www.googleapis.com/drive/v3/files?fields=files(id,name,mimeType,webViewLink,webContentLink)&q=%271bh24cYAMnM0BKLjZKJOcvF5nxqXxLoc3%27+in+parents&key=YOUR_API_KEY';
 
     let globalWavesurfer = null;
 
@@ -225,8 +211,6 @@
       waveformContainer.className = 'waveform-container';
       container.appendChild(waveformContainer);
 
-      // Removed loadingProgressBar element
-
       const errorMessage = document.createElement('div');
       errorMessage.className = 'error-message';
       errorMessage.style.display = 'none';
@@ -245,8 +229,6 @@
 
       let loadingPromise = Promise.resolve();
 
-      // Removed createSpinner() function
-
       function clearWavesurfer() {
         if (globalWavesurfer) {
           try {
@@ -261,8 +243,6 @@
       function delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
       }
-
-      // Removed removeSpinnerFromTrack() and addSpinnerToTrack()
 
       function setErrorMessage(text) {
         errorMessage.textContent = text;
@@ -287,10 +267,7 @@
           currentAttempt = 1;
           let didLoad = false;
 
-          // Removed loadingProgressBar style updates
           waveformContainer.style.opacity = '0.3';
-
-          // Removed removing/adding spinners on tracks
 
           globalWavesurfer = WaveSurfer.create({
             container: waveformContainer,
@@ -306,9 +283,7 @@
               currentAttempt++;
               loadTrack(index);
             } else {
-              // Removed loadingProgressBar hide
               waveformContainer.style.opacity = '1';
-              // Removed spinner removal
               setErrorMessage('Error: Unable to load track after multiple attempts.');
             }
           }
@@ -319,14 +294,12 @@
             }
           }, LOAD_TIMEOUT);
 
-          // Fetch precomputed waveform JSON, normalize data and load peaks
           const waveformJSONUrl = BASE_URL + tracks[index].file.replace(/\.mp3$/, '.json');
           try {
             const response = await fetch(waveformJSONUrl);
             if (!response.ok) throw new Error('Waveform JSON not found');
             const waveformData = await response.json();
 
-            // Defensive fix: flatten and normalize peaks data
             const rawData = waveformData.data;
             const flatData = Array.isArray(rawData) ? rawData.flat(Infinity) : [];
             const peaks = flatData.map(v => v / 255);
@@ -338,14 +311,12 @@
             globalWavesurfer.once('ready', () => {
               didLoad = true;
               clearTimeout(currentLoadTimeout);
-              // Removed loadingProgressBar width 100% and hide
               setTimeout(() => {
                 waveformContainer.style.opacity = '1';
                 globalWavesurfer.play();
                 isPlaying = true;
                 updatePlayPauseButton();
                 updateActiveTrack();
-                // Removed spinner removal
                 setErrorMessage('');
               }, 200);
             });
@@ -354,8 +325,6 @@
               clearTimeout(currentLoadTimeout);
               retryLoad();
             });
-
-            // Removed globalWavesurfer.on('loading', ...) handler
 
             globalWavesurfer.on('finish', () => {
               let nextIndex = currentTrackIndex + 1;
@@ -368,7 +337,6 @@
               }
             });
 
-            // Load the audio AND pass precomputed peaks
             globalWavesurfer.load(BASE_URL + tracks[index].file, peaks);
 
           } catch (err) {
@@ -423,8 +391,6 @@
           if (currentTrackIndex === index && isPlaying) {
             globalWavesurfer.pause();
             isPlaying = false;
-            updatePlayPauseButton();
-            // Removed spinner removal
           } else {
             loadTrack(index);
           }
@@ -436,6 +402,28 @@
       });
 
       return container;
+    }
+
+    async function loadGDriveLinks() {
+      const container = document.getElementById('gdrive-section');
+      try {
+        // Using public folder feed via JSONP workaround
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files?key=YOUR_API_KEY&q='1bh24cYAMnM0BKLjZKJOcvF5nxqXxLoc3'+in+parents&fields=files(id,name,mimeType,webViewLink,webContentLink)`);
+        const data = await res.json();
+        data.files.forEach(file => {
+          const link = document.createElement('a');
+          link.href = file.webViewLink || file.webContentLink;
+          link.textContent = file.name;
+          link.target = '_blank';
+          link.className = 'playlist-link';
+          container.appendChild(link);
+        });
+      } catch (err) {
+        const errMsg = document.createElement('div');
+        errMsg.textContent = 'Unable to load G-Drive links.';
+        errMsg.style.color = 'red';
+        container.appendChild(errMsg);
+      }
     }
 
     async function init() {
@@ -478,6 +466,8 @@
 
         selector.appendChild(button);
       });
+
+      loadGDriveLinks();
     }
 
     init();
