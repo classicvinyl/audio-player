@@ -88,6 +88,7 @@
     .playlist-link:hover {
       text-decoration: underline;
     }
+
     /* MOBILE RESPONSIVENESS ADJUSTMENTS */
     .playlist-container .flex.flex-wrap {
       flex-wrap: nowrap !important;
@@ -124,21 +125,22 @@
 </head>
 <body>
   <div class="p-6">
-    <!-- PLAYLISTS HEADING -->
+    <!-- PLAYLISTS HEADER -->
     <h2 class="playlist-title mb-2">PLAYLISTS</h2>
     <div id="playlist-selector" class="mb-8 space-y-2"></div>
-
-    <!-- G-DRIVE SECTION -->
-    <h2 class="playlist-title mb-2">G-DRIVE</h2>
-    <div id="gdrive-section" class="mb-8 space-y-2"></div>
-
     <div id="active-playlist"></div>
     <div id="other-playlists" class="mt-12 space-y-2"></div>
+
+    <!-- G-DRIVE SECTION -->
+    <h2 class="playlist-title mt-12 mb-2">G-DRIVE</h2>
+    <div id="gdrive-links" class="space-y-2">
+      <a class="playlist-link" href="https://drive.google.com/drive/folders/1bh24cYAMnM0BKLjZKJOcvF5nxqXxLoc3" target="_blank">Public Folder</a>
+      <!-- add more links here if needed -->
+    </div>
   </div>
 
   <script>
     const BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/';
-    const PUBLIC_DRIVE_JSON = 'https://www.googleapis.com/drive/v3/files?fields=files(id,name,mimeType,webViewLink,webContentLink)&q=%271bh24cYAMnM0BKLjZKJOcvF5nxqXxLoc3%27+in+parents&key=YOUR_API_KEY';
 
     let globalWavesurfer = null;
 
@@ -225,7 +227,7 @@
       let currentLoadTimeout = null;
       let currentAttempt = 0;
       const MAX_RETRIES = 5;
-      const LOAD_TIMEOUT = 20000; // 20 seconds
+      const LOAD_TIMEOUT = 20000;
 
       let loadingPromise = Promise.resolve();
 
@@ -299,7 +301,6 @@
             const response = await fetch(waveformJSONUrl);
             if (!response.ok) throw new Error('Waveform JSON not found');
             const waveformData = await response.json();
-
             const rawData = waveformData.data;
             const flatData = Array.isArray(rawData) ? rawData.flat(Infinity) : [];
             const peaks = flatData.map(v => v / 255);
@@ -391,6 +392,7 @@
           if (currentTrackIndex === index && isPlaying) {
             globalWavesurfer.pause();
             isPlaying = false;
+            updatePlayPauseButton();
           } else {
             loadTrack(index);
           }
@@ -402,28 +404,6 @@
       });
 
       return container;
-    }
-
-    async function loadGDriveLinks() {
-      const container = document.getElementById('gdrive-section');
-      try {
-        // Using public folder feed via JSONP workaround
-        const res = await fetch(`https://www.googleapis.com/drive/v3/files?key=YOUR_API_KEY&q='1bh24cYAMnM0BKLjZKJOcvF5nxqXxLoc3'+in+parents&fields=files(id,name,mimeType,webViewLink,webContentLink)`);
-        const data = await res.json();
-        data.files.forEach(file => {
-          const link = document.createElement('a');
-          link.href = file.webViewLink || file.webContentLink;
-          link.textContent = file.name;
-          link.target = '_blank';
-          link.className = 'playlist-link';
-          container.appendChild(link);
-        });
-      } catch (err) {
-        const errMsg = document.createElement('div');
-        errMsg.textContent = 'Unable to load G-Drive links.';
-        errMsg.style.color = 'red';
-        container.appendChild(errMsg);
-      }
     }
 
     async function init() {
@@ -466,8 +446,6 @@
 
         selector.appendChild(button);
       });
-
-      loadGDriveLinks();
     }
 
     init();
