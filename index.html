@@ -14,21 +14,22 @@
     }
 
     /* Full-page background image, fills height */
-    body::before {
-      content: "";
-      position: fixed;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: auto;
-      height: 100%; /* always fill height */
-      background-image: url('https://classicvinyl.github.io/audio-player/uous-bg.jpg');
-      background-size: auto 100%; /* maintain aspect ratio, fill height */
-      background-position: center;
-      background-repeat: no-repeat;
-      z-index: -2;
-      pointer-events: none;
-    }
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;         /* force full width */
+  height: 100%;        /* full height */
+  max-width: none;     /* ensure no shrink */
+  background-image: url('https://classicvinyl.github.io/audio-player/uous-bg.jpg');
+  background-size: auto 100%; /* fill height, keep aspect ratio */
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -2;
+  pointer-events: none;
+}
 
     /* Dark overlay to improve text readability */
     body::after {
