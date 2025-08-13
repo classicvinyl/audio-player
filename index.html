@@ -26,19 +26,18 @@ body::before {
   pointer-events: none;
 }
 
-    /*
-    body::after {
-      content: "";
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.3); 
-      z-index: -1;
-      pointer-events: none;
-    }
-    */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.3); /* same grey tint as before */
+  mix-blend-mode: lighten; /* blends with the white edges of image */
+  z-index: -1;
+  pointer-events: none;
+}
 
     .playlist-container {
       background-color: #000;
