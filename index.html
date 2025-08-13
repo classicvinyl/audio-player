@@ -85,9 +85,6 @@
       padding: 0.25rem 0;
       display: block;
     }
-    .playlist-link:hover {
-      text-decoration: underline;
-    }
 
     /* MOBILE RESPONSIVENESS ADJUSTMENTS */
     .playlist-container .flex.flex-wrap {
@@ -126,15 +123,17 @@
 <body>
   <div class="p-6">
     <!-- PLAYLISTS HEADER -->
-    <h2 class="playlist-title mb-2">PLAYLISTS</h2>
+    <h2 id="playlists-header" class="playlist-title mb-2">PLAYLISTS</h2>
     <div id="playlist-selector" class="mb-8 space-y-2"></div>
     <div id="active-playlist"></div>
     <div id="other-playlists" class="mt-12 space-y-2"></div>
 
     <!-- G-DRIVE SECTION -->
-    <h2 class="playlist-title mt-12 mb-2">G-DRIVE</h2>
+    <h2 id="gdrive-header" class="playlist-title mt-12 mb-2">G-DRIVE</h2>
     <div id="gdrive-links" class="space-y-2">
-      <a class="playlist-link" href="https://drive.google.com/drive/folders/1bh24cYAMnM0BKLjZKJOcvF5nxqXxLoc3" target="_blank">Public Folder</a>
+      <div class="track-item">
+        <a class="truncate w-full" href="https://drive.google.com/drive/folders/1bh24cYAMnM0BKLjZKJOcvF5nxqXxLoc3" target="_blank">Public Folder</a>
+      </div>
       <!-- add more links here if needed -->
     </div>
   </div>
@@ -411,6 +410,9 @@
       const selector = document.getElementById('playlist-selector');
       const activeContainer = document.getElementById('active-playlist');
       const otherContainer = document.getElementById('other-playlists');
+      const playlistsHeader = document.getElementById('playlists-header');
+      const gdriveHeader = document.getElementById('gdrive-header');
+      const gdriveLinks = document.getElementById('gdrive-links');
 
       files.forEach((playlist) => {
         const button = document.createElement('div');
@@ -423,6 +425,10 @@
         button.appendChild(nameSpan);
 
         button.addEventListener('click', () => {
+          // Hide headers
+          playlistsHeader.style.display = 'none';
+          gdriveHeader.style.display = 'none';
+          gdriveLinks.style.display = 'none';
           selector.innerHTML = '';
           activeContainer.innerHTML = '';
           otherContainer.innerHTML = '';
@@ -430,18 +436,16 @@
           const active = createPlaylist(playlist.playlist, playlist.tracks);
           activeContainer.appendChild(active);
 
-          const backToList = document.createElement('div');
-          backToList.className = 'track-item active inline-block px-4 py-2 rounded';
-          backToList.style.cursor = 'pointer';
+          const homeLink = document.createElement('div');
+          homeLink.className = 'track-item active inline-block px-4 py-2 rounded';
+          homeLink.style.cursor = 'pointer';
+          const homeText = document.createElement('span');
+          homeText.textContent = 'HOME';
+          homeText.className = 'truncate px-4 py-2';
+          homeLink.appendChild(homeText);
 
-          const backText = document.createElement('span');
-          backText.textContent = 'PLAYLISTS';
-          backText.className = 'truncate px-4 py-2';
-          backToList.appendChild(backText);
-
-          backToList.addEventListener('click', () => location.reload());
-
-          otherContainer.appendChild(backToList);
+          homeLink.addEventListener('click', () => location.reload());
+          otherContainer.appendChild(homeLink);
         });
 
         selector.appendChild(button);
