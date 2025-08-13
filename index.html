@@ -10,29 +10,27 @@
 
 body {
   margin: 0;
-  background-color: white; /* matches image background */
+  background-color: white; /* matches the image background */
   overflow-x: hidden;
   position: relative;
 }
 
-/* background image */
+/* Background image layer */
 body::before {
   content: "";
   position: fixed;
   top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: auto;
+  left: 0;
+  width: 100%;
   height: 100%;
+  background: center top no-repeat white;
   background-image: url('https://classicvinyl.github.io/audio-player/uous-bg.jpg');
-  background-size: auto 100%; /* fills height, keeps aspect ratio */
-  background-position: center top;
-  background-repeat: no-repeat;
+  background-size: contain; /* keep full image visible */
   z-index: -2;
   pointer-events: none;
 }
 
-/* full-page grey overlay */
+/* Grey overlay layer */
 body::after {
   content: "";
   position: fixed;
@@ -40,7 +38,7 @@ body::after {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0,0,0,0.3); /* uniform grey overlay */
+  background-color: rgba(0,0,0,0.3); /* same grey everywhere */
   z-index: -1;
   pointer-events: none;
 }
