@@ -25,9 +25,16 @@ body::before {
   height: 100%;
   background: center top no-repeat white;
   background-image: url('https://classicvinyl.github.io/audio-player/uous-bg.jpg');
-  background-size: contain; /* keep full image visible */
+  background-size: contain;
   z-index: -2;
   pointer-events: none;
+}
+
+/* Mobile override */
+@media (max-width: 768px) {
+  body::before {
+    background-size: cover;
+  }
 }
 
 /* Grey overlay layer */
