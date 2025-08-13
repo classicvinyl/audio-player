@@ -7,40 +7,41 @@
   <script src="https://unpkg.com/wavesurfer.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
-    body {
-      position: relative;
-      background-color: #2a1a26;
-      overflow-x: hidden;
-    }
+body {
+  position: relative;
+  background-color: white; /* blank space left/right will be white */
+  overflow-x: hidden;
+}
 
-    /* Full-page background image */
-    body::before {
-      content: "";
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-image: url('https://classicvinyl.github.io/audio-player/uous-bg.jpg'); /* replace with your image link */
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      z-index: -2;
-      pointer-events: none;
-    }
+/* Full-page background image, fills height */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: auto;
+  height: 100%; /* always fill height */
+  background-image: url('https://classicvinyl.github.io/audio-player/uous-bg.jpg');
+  background-size: auto 100%; /* maintain aspect ratio, fill height */
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -2;
+  pointer-events: none;
+}
 
-    /* Dark overlay to improve text readability */
-    body::after {
-      content: "";
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.3); /* adjust opacity if needed */
-      z-index: -1;
-      pointer-events: none;
-    }
+/* Dark overlay to improve text readability */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.3); /* existing overlay */
+  z-index: -1;
+  pointer-events: none;
+}
 
     .playlist-container {
       background-color: #000;
