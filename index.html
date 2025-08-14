@@ -466,6 +466,8 @@ body::after {
       const playlistsHeader = document.getElementById('playlists-header');
       const gdriveHeader = document.getElementById('gdrive-header');
       const gdriveLinks = document.getElementById('gdrive-links');
+      const soundcloudHeader = document.getElementById('soundcloud-header'); /* added */
+      const soundcloudLinks = document.getElementById('soundcloud-links');   /* added */
 
       files.forEach((playlist) => {
         const button = document.createElement('div');
@@ -482,6 +484,8 @@ body::after {
           playlistsHeader.style.display = 'none';
           gdriveHeader.style.display = 'none';
           gdriveLinks.style.display = 'none';
+          soundcloudHeader.style.display = 'none';  /* added */
+          soundcloudLinks.style.display = 'none';   /* added */
           selector.innerHTML = '';
           activeContainer.innerHTML = '';
           otherContainer.innerHTML = '';
