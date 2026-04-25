@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>uous private</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>playlist notes</title>
 
-  <script src="https://unpkg.com/wavesurfer.js"></script>
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-  
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<style>
 
-  <style>
+/* =========================
+   INDEX.HTML STYLE BACKGROUND
+========================= */
+
 body {
   margin: 0;
   background-color: white;
@@ -18,6 +18,7 @@ body {
   position: relative;
 }
 
+/* background image */
 body::before {
   content: "";
   position: fixed;
@@ -25,11 +26,20 @@ body::before {
   left: 0;
   width: 100%;
   height: 100%;
+  background: center top no-repeat white;
   background-image: url('https://classicvinyl.github.io/audio-player/uous-bg.jpg');
   background-size: contain;
   z-index: -2;
+  pointer-events: none;
 }
 
+@media (max-width: 768px) {
+  body::before {
+    background-size: cover;
+  }
+}
+
+/* grey overlay */
 body::after {
   content: "";
   position: fixed;
@@ -39,205 +49,174 @@ body::after {
   height: 100%;
   background-color: rgba(0,0,0,0.3);
   z-index: -1;
+  pointer-events: none;
 }
 
-.playlist-container { background:#000; padding:1rem; border-radius:0.5rem; margin-bottom:2rem; }
-.playlist-title { color:grey; font-size:2rem; font-weight:bold; }
+/* =========================
+   LAYOUT (UNCHANGED STRUCTURE)
+========================= */
 
-.track-item {
-  display:flex;
-  justify-content:space-between;
-  padding:0.5rem 1rem;
-  color:white;
-  cursor:pointer;
+.wrap {
+  padding: 20px;
 }
 
-.track-item:hover { background:#3c2a36; }
-.track-item.active { background:grey; }
-
-.duration { color:#bbb; font-size:0.85rem; }
-
-.waveform-container { height:130px; background:#000; border-radius:0.5rem; }
-
-.comment-block {
-  margin-top:0.5rem;
-  padding-left:1rem;
-  border-left:1px solid #333;
+/* playlist container matches index aesthetic */
+.playlist {
+  background-color: #000;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 2rem;
 }
 
-.comment-line {
-  width:100%;
-  background:transparent;
-  border:none;
-  border-bottom:1px solid #222;
-  color:white;
-  font-size:0.85rem;
-  padding:0.4rem 0;
-  outline:none;
+/* playlist title EXACT index style */
+.playlist-title {
+  color: grey;
+  font-weight: bold;
+  font-size: 2rem;
+  margin: 0 0 1rem 0;
 }
 
-.comment-line:focus { border-bottom:1px solid grey; }
-  </style>
+/* track block */
+.track {
+  padding: 10px;
+  border-radius: 0.375rem;
+  color: white;
+  border-bottom: 1px solid #111;
+}
+
+.track:hover {
+  background-color: #3c2a36;
+}
+
+/* track name */
+.track-name {
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: #fff;
+}
+
+/* =========================
+   COMMENTS (MATCH DARK UI)
+========================= */
+
+.comment {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #222;
+  color: #ccc;
+  padding: 6px 0;
+  margin: 4px 0;
+  font-size: 12px;
+  outline: none;
+}
+
+.comment:focus {
+  border-bottom: 1px solid grey;
+}
+
+</style>
 </head>
 
 <body>
-<div class="p-6">
+<div class="wrap" id="app"></div>
 
-<h2 class="playlist-title mb-2">PLAYLISTS</h2>
-<div id="playlist-selector"></div>
-<div id="active-playlist"></div>
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-</div>
-
-<script>
-const BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/';
-
-/* =========================
-   SINGLE SUPABASE CLIENT
-========================= */
 const SUPABASE_URL = "https://mgeeyekokpymfwtkngai.supabase.co";
 const SUPABASE_KEY = "sb_publishable_K2O4oYM7el8cSXnqZrB7EQ_WDXYWkn_";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let globalWavesurfer = null;
+const BASE_URL = "https://uous-audio-player.s3.eu-west-1.amazonaws.com/";
 
 async function loadFiles() {
-  const res = await fetch(BASE_URL + 'files.json', { cache: 'no-cache' });
+  const res = await fetch(BASE_URL + "files.json", { cache: "no-cache" });
   return res.json();
 }
 
-/* =========================
-   PLAYLIST RENDER
-========================= */
-function createPlaylist(name, tracks) {
+function makeTrackId(playlist, file) {
+  return `${playlist}/${file}`;
+}
 
-  const container = document.createElement('div');
-  container.className = 'playlist-container';
+async function loadComments(track) {
+  const { data } = await supabase
+    .from("comments")
+    .select("*")
+    .eq("track", track);
 
-  const title = document.createElement('div');
-  title.className = 'playlist-title';
-  title.textContent = name;
-  container.appendChild(title);
+  return data || [];
+}
 
-  const trackList = document.createElement('div');
+async function saveComment(track, line, value) {
+  await supabase
+    .from("comments")
+    .upsert(
+      {
+        track,
+        line,
+        comment: value
+      },
+      { onConflict: "track,line" }
+    );
+}
 
-  tracks.forEach((track) => {
+function createInput(track, line, existing) {
+  const input = document.createElement("input");
+  input.className = "comment";
+  input.value = existing?.comment || "";
+  input.placeholder = `comment ${line + 1}`;
 
-    const trackId = `${name}/${track.file}`;
+  input.addEventListener("change", () => {
+    saveComment(track, line, input.value);
+  });
 
-    const row = document.createElement('div');
-    row.className = 'track-item';
+  return input;
+}
 
-    const label = document.createElement('span');
-    label.textContent = track.title;
+async function render() {
+  const app = document.getElementById("app");
+  const data = await loadFiles();
 
-    const duration = document.createElement('span');
-    duration.className = 'duration';
-    duration.textContent = '--:--';
+  for (const playlist of data) {
 
-    row.appendChild(label);
-    row.appendChild(duration);
+    const playlistDiv = document.createElement("div");
+    playlistDiv.className = "playlist";
 
-    const commentBlock = document.createElement('div');
-    commentBlock.className = 'comment-block';
+    const title = document.createElement("div");
+    title.className = "playlist-title";
+    title.textContent = playlist.playlist;
 
-    /* SAFE LOAD (no crash) */
-    setTimeout(async () => {
-      try {
-        const { data } = await supabase
-          .from("comments")
-          .select("*")
-          .eq("track", trackId);
+    playlistDiv.appendChild(title);
 
-        const existing = data || [];
+    for (const track of playlist.tracks) {
 
-        for (let i = 0; i < 4; i++) {
+      const trackId = makeTrackId(playlist.playlist, track.file);
+      const comments = await loadComments(trackId);
 
-          const input = document.createElement('input');
-          input.className = 'comment-line';
+      const trackDiv = document.createElement("div");
+      trackDiv.className = "track";
 
-          const found = existing.find(c => c.line === i);
-          input.value = found ? found.comment : '';
-          input.placeholder = `comment ${i + 1}`;
+      const name = document.createElement("div");
+      name.className = "track-name";
+      name.textContent = track.title;
 
-          input.addEventListener('change', async () => {
-            await supabase
-              .from("comments")
-              .upsert({
-                track: trackId,
-                line: i,
-                comment: input.value
-              }, { onConflict: "track,line" });
-          });
+      trackDiv.appendChild(name);
 
-          commentBlock.appendChild(input);
-        }
-
-      } catch (e) {
-        console.log("Supabase comment load error:", e);
+      for (let i = 0; i < 4; i++) {
+        const existing = comments.find(c => c.line === i);
+        trackDiv.appendChild(createInput(trackId, i, existing));
       }
-    }, 0);
 
-    row.addEventListener('click', () => {
-      loadTrack(track.file);
-    });
+      playlistDiv.appendChild(trackDiv);
+    }
 
-    trackList.appendChild(row);
-    trackList.appendChild(commentBlock);
-
-    const audio = new Audio(BASE_URL + track.file);
-    audio.addEventListener('loadedmetadata', () => {
-      duration.textContent =
-        Math.floor(audio.duration / 60) + ':' +
-        String(Math.floor(audio.duration % 60)).padStart(2,'0');
-    });
-
-  });
-
-  container.appendChild(trackList);
-  return container;
+    app.appendChild(playlistDiv);
+  }
 }
 
-/* =========================
-   WAVESURFER
-========================= */
-async function loadTrack(file) {
-  if (globalWavesurfer) globalWavesurfer.destroy();
-
-  globalWavesurfer = WaveSurfer.create({
-    container: document.createElement('div'),
-    waveColor: 'white',
-    progressColor: 'orange',
-    height: 130
-  });
-
-  globalWavesurfer.load(BASE_URL + file);
-}
-
-/* =========================
-   INIT
-========================= */
-async function init() {
-  const files = await loadFiles();
-  const selector = document.getElementById('playlist-selector');
-  const active = document.getElementById('active-playlist');
-
-  files.forEach(p => {
-    const btn = document.createElement('div');
-    btn.className = 'track-item';
-    btn.textContent = p.playlist;
-
-    btn.onclick = () => {
-      active.innerHTML = '';
-      active.appendChild(createPlaylist(p.playlist, p.tracks));
-    };
-
-    selector.appendChild(btn);
-  });
-}
-
-init();
+render();
 </script>
 
 </body>
