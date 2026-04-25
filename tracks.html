@@ -4,18 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>uous private</title>
-  <script src="https://unpkg.com/wavesurfer.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <style>
 
+  <script src="https://unpkg.com/wavesurfer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+
+  <style>
 body {
   margin: 0;
-  background-color: white; /* matches the image background */
+  background-color: white;
   overflow-x: hidden;
   position: relative;
 }
 
-/* Background image layer */
 body::before {
   content: "";
   position: fixed;
@@ -30,14 +32,10 @@ body::before {
   pointer-events: none;
 }
 
-/* Mobile override */
 @media (max-width: 768px) {
-  body::before {
-    background-size: cover;
-  }
+  body::before { background-size: cover; }
 }
 
-/* Grey overlay layer */
 body::after {
   content: "";
   position: fixed;
@@ -45,121 +43,52 @@ body::after {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0,0,0,0.3); /* same grey everywhere */
+  background-color: rgba(0,0,0,0.3);
   z-index: -1;
   pointer-events: none;
 }
 
-    .playlist-container {
-      background-color: #000;
-      padding: 1rem;
-      border-radius: 0.5rem;
-      border-color: #808080;
-      margin-bottom: 2rem;
-    }
-    .playlist-title {
-      color: grey;
-      font-weight: bold;
-      font-size: 2rem;
-      margin: 0;
-    }
-    .track-item {
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.5rem 1rem;
-      border-radius: 0.375rem;
-      color: white;
-      transition: background-color 0.3s;
-    }
-    .track-item:hover {
-      background-color: #3c2a36;
-    }
-    .track-item.active {
-      background-color: grey;
-      font-weight: bold;
-    }
-    .duration {
-      color: #bbb;
-      font-size: 0.85rem;
-      min-width: 40px;
-      text-align: right;
-      margin-left: 0.5rem;
-    }
-    .waveform-container {
-      position: relative;
-      height: 130px;
-      margin-bottom: 0.5rem;
-      background-color: #000;
-      border-radius: 0.5rem;
-      border-color: #808080;
-      transition: opacity 0.3s ease;
-    }
-    .error-message {
-      color: #ff6b6b;
-      font-weight: bold;
-      margin-bottom: 1.5rem;
-      text-align: center;
-    }
-    .play-pause-button {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: orange;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-      transition: background 0.3s;
-      flex-shrink: 0;
-    }
-    .play-icon, .pause-icon {
-      fill: white;
-      width: 30px;
-      height: 30px;
-    }
-    .playlist-link {
-      color: white;
-      cursor: pointer;
-      padding: 0.25rem 0;
-      display: block;
-    }
+.playlist-container {
+  background-color: #000;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 2rem;
+}
 
-    /* MOBILE RESPONSIVENESS ADJUSTMENTS */
-    .playlist-container .flex.flex-wrap {
-      flex-wrap: nowrap !important;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .playlist-container .playlist-title {
-      flex: 1 1 auto;
-      min-width: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-right: 0.5rem;
-    }
-    .playlist-container .play-pause-button {
-      flex: 0 0 auto;
-    }
-    .track-item .truncate {
-      min-width: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    @media (max-width: 480px) {
-      .playlist-container .playlist-title {
-        font-size: 1.25rem;
-      }
-      .playlist-container .play-pause-button {
-        width: 44px;
-        height: 44px;
-      }
-    }
+.playlist-title {
+  color: grey;
+  font-weight: bold;
+  font-size: 2rem;
+}
 
-    .comment-block {
+.track-item {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  color: white;
+}
+
+.track-item:hover { background-color: #3c2a36; }
+
+.track-item.active { background-color: grey; }
+
+.duration { color: #bbb; font-size: 0.85rem; }
+
+.waveform-container {
+  height: 130px;
+  background-color: #000;
+  border-radius: 0.5rem;
+}
+
+.play-pause-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: orange;
+}
+
+.comment-block {
   margin-top: 0.5rem;
   padding-left: 1rem;
   border-left: 1px solid #333;
@@ -176,401 +105,154 @@ body::after {
   outline: none;
 }
 
-.comment-line:focus {
-  border-bottom: 1px solid grey;
-}
-    
+.comment-line:focus { border-bottom: 1px solid grey; }
   </style>
 </head>
+
 <body>
-  <div class="p-6">
-    <!-- PLAYLISTS HEADER -->
-    <h2 id="playlists-header" class="playlist-title mb-2">PLAYLISTS</h2>
-    <div id="playlist-selector" class="mb-8 space-y-2"></div>
-    <div id="active-playlist"></div>
-    <div id="other-playlists" class="mt-12 space-y-2"></div>
+<div class="p-6">
 
-    <!-- G-DRIVE SECTION -->
-    <h2 id="gdrive-header" class="playlist-title mt-12 mb-2">GOOGLE DRIVE</h2>
-    <div id="gdrive-links" class="space-y-2">
-      <div class="track-item active flex-nowrap overflow-hidden" style="cursor:pointer;" onclick="window.open('https://drive.google.com/drive/folders/1bh24cYAMnM0BKLjZKJOcvF5nxqXxLoc3', '_blank')">
-        <span class="truncate w-full">CONTENTS</span>
-      </div>
-    </div>
-<br><br>
-      <!-- SOUNDCLOUD SECTION -->
-    <h2 id="soundcloud-header" class="playlist-title mt-12 mb-2">SOUNDCLOUD</h2>
-    <div id="soundcloud-links" class="space-y-2">
-      <div class="track-item active flex-nowrap overflow-hidden" style="cursor:pointer;" onclick="window.open('https://soundcloud.com/decal-artifacts/sets/bbas-session-1/s-44DPp00XrD8?ref=clipboard&p=a&c=1&si=a00b89a1ec864ebcbe55e9d3151af801', '_blank')">
-        <span class="truncate w-full">SESSION 1</span>
-      </div>
-      <div class="track-item active flex-nowrap overflow-hidden" style="cursor:pointer;" onclick="window.open('https://soundcloud.com/decal-artifacts/sets/jabbs-session-2/s-NJxU5P7U5WY?ref=clipboard&p=a&c=1&si=fbba604ec4d74561bba2e933e031e135', '_blank')">
-        <span class="truncate w-full">SESSION 2</span>
-      </div>
-      <div class="track-item active flex-nowrap overflow-hidden" style="cursor:pointer;" onclick="window.open('https://soundcloud.com/decal-artifacts/sets/uous-may-2025-edited/s-Se2jSTtvQRn?ref=clipboard&p=a&c=1&si=76e10ada55c34aa9a1a9b0c8f3250b8c', '_blank')">
-        <span class="truncate w-full">MAY-2025</span>
-      </div>
-    </div>
+<h2 class="playlist-title mb-2">PLAYLISTS</h2>
+<div id="playlist-selector"></div>
+<div id="active-playlist"></div>
+
 </div>
-    
-  <script>
-    const BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/';
 
-    let globalWavesurfer = null;
+<script>
+const BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/';
 
-    async function loadFiles() {
-      const res = await fetch(BASE_URL + 'files.json', {cache: 'no-cache'});
-      return res.json();
-    }
+/* ✅ SUPABASE INIT */
+const SUPABASE_URL = "https://mgeeyekokpymfwtkngai.supabase.co";
+const SUPABASE_KEY = "sb_publishable_K2O4oYM7el8cSXnqZrB7EQ_WDXYWkn_";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    function formatTime(seconds) {
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
-      return `${mins}:${secs}`;
-    }
+let globalWavesurfer = null;
 
-    function createPlayPauseSVG(isPlaying) {
-      return isPlaying
-        ? `<svg class="pause-icon" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>`
-        : `<svg class="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>`;
-    }
+async function loadFiles() {
+  const res = await fetch(BASE_URL + 'files.json', { cache: 'no-cache' });
+  return res.json();
+}
 
-    function createPlaylist(name, tracks) {
-      if (globalWavesurfer) {
-        try {
-          globalWavesurfer.stop();
-          globalWavesurfer.unAll();
-          globalWavesurfer.destroy();
-        } catch {}
-        globalWavesurfer = null;
-      }
+function createPlaylist(name, tracks) {
 
-      const container = document.createElement('div');
-      container.className = 'playlist-container';
+  const container = document.createElement('div');
+  container.className = 'playlist-container';
 
-      tracks.sort((a, b) => {
-        function tokenize(str) {
-          return str.match(/\d+|\D+/g).map(token =>
-            /\d/.test(token) ? parseInt(token, 10) : token.toLowerCase()
-          );
-        }
-        const aTokens = tokenize(a.title);
-        const bTokens = tokenize(b.title);
-        const len = Math.max(aTokens.length, bTokens.length);
-        for (let i = 0; i < len; i++) {
-          const aTok = aTokens[i];
-          const bTok = bTokens[i];
-          if (aTok === undefined) return -1;
-          if (bTok === undefined) return 1;
-          if (aTok < bTok) return -1;
-          if (aTok > bTok) return 1;
-        }
-        return 0;
-      });
+  const title = document.createElement('div');
+  title.className = 'playlist-title';
+  title.textContent = name;
+  container.appendChild(title);
 
-      const header = document.createElement('div');
-      header.className = 'flex flex-wrap justify-between items-center gap-2 mb-4';
+  const trackList = document.createElement('div');
 
-      const title = document.createElement('h2');
-      title.className = 'playlist-title m-0';
-      title.textContent = name;
-      header.appendChild(title);
+  tracks.forEach((track, index) => {
 
-      const playPauseButton = document.createElement('div');
-      playPauseButton.className = 'play-pause-button ml-auto';
-      playPauseButton.innerHTML = createPlayPauseSVG(false);
-      header.appendChild(playPauseButton);
+    const trackId = `${name}/${track.file}`;
 
-      container.appendChild(header);
+    const row = document.createElement('div');
+    row.className = 'track-item';
 
-      const waveformContainer = document.createElement('div');
-      waveformContainer.className = 'waveform-container';
-      container.appendChild(waveformContainer);
+    const label = document.createElement('span');
+    label.textContent = track.title;
 
-      const errorMessage = document.createElement('div');
-      errorMessage.className = 'error-message';
-      errorMessage.style.display = 'none';
-      container.appendChild(errorMessage);
+    const duration = document.createElement('span');
+    duration.className = 'duration';
+    duration.textContent = '--:--';
 
-      const trackList = document.createElement('ul');
-      trackList.className = 'space-y-2';
-      container.appendChild(trackList);
+    row.appendChild(label);
+    row.appendChild(duration);
 
-      let currentTrackIndex = -1;
-      let isPlaying = false;
-      let currentLoadTimeout = null;
-      let currentAttempt = 0;
-      const MAX_RETRIES = 5;
-      const LOAD_TIMEOUT = 20000;
+    const commentBlock = document.createElement('div');
+    commentBlock.className = 'comment-block';
 
-      let loadingPromise = Promise.resolve();
-
-      function clearWavesurfer() {
-        if (globalWavesurfer) {
-          try {
-            globalWavesurfer.stop();
-            globalWavesurfer.unAll();
-            globalWavesurfer.destroy();
-          } catch {}
-          globalWavesurfer = null;
-        }
-      }
-
-      function delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-      }
-
-      function setErrorMessage(text) {
-        errorMessage.textContent = text;
-        errorMessage.style.display = text ? 'block' : 'none';
-      }
-
-      async function loadTrack(index) {
-        if (index < 0 || index >= tracks.length) return;
-
-        loadingPromise = loadingPromise.then(async () => {
-          if (currentLoadTimeout) {
-            clearTimeout(currentLoadTimeout);
-            currentLoadTimeout = null;
-          }
-
-          if (globalWavesurfer) {
-            clearWavesurfer();
-            await delay(150);
-          }
-
-          currentTrackIndex = index;
-          currentAttempt = 1;
-          let didLoad = false;
-
-          waveformContainer.style.opacity = '0.3';
-
-          globalWavesurfer = WaveSurfer.create({
-            container: waveformContainer,
-            waveColor: 'white',
-            progressColor: 'orange',
-            height: 130,
-            responsive: true,
-            backend: 'MediaElement'
-          });
-
-          function retryLoad() {
-            if (currentAttempt < MAX_RETRIES) {
-              currentAttempt++;
-              loadTrack(index);
-            } else {
-              waveformContainer.style.opacity = '1';
-              setErrorMessage('Error: Unable to load track after multiple attempts.');
-            }
-          }
-
-          currentLoadTimeout = setTimeout(() => {
-            if (!didLoad) {
-              retryLoad();
-            }
-          }, LOAD_TIMEOUT);
-
-          const waveformJSONUrl = BASE_URL + tracks[index].file.replace(/\.mp3$/, '.json');
-          try {
-            const response = await fetch(waveformJSONUrl);
-            if (!response.ok) throw new Error('Waveform JSON not found');
-            const waveformData = await response.json();
-            const rawData = waveformData.data;
-            const flatData = Array.isArray(rawData) ? rawData.flat(Infinity) : [];
-            const peaks = flatData.map(v => v / 255);
-
-            if (!peaks || peaks.length === 0) {
-              throw new Error('Peaks array empty or invalid');
-            }
-
-            globalWavesurfer.once('ready', () => {
-              didLoad = true;
-              clearTimeout(currentLoadTimeout);
-              setTimeout(() => {
-                waveformContainer.style.opacity = '1';
-                globalWavesurfer.play();
-                isPlaying = true;
-                updatePlayPauseButton();
-                updateActiveTrack();
-                setErrorMessage('');
-              }, 200);
-            });
-
-            globalWavesurfer.once('error', () => {
-              clearTimeout(currentLoadTimeout);
-              retryLoad();
-            });
-
-            globalWavesurfer.on('finish', () => {
-              let nextIndex = currentTrackIndex + 1;
-              if (nextIndex < tracks.length) {
-                loadTrack(nextIndex);
-              } else {
-                isPlaying = false;
-                updatePlayPauseButton();
-                updateActiveTrack();
-              }
-            });
-
-            globalWavesurfer.load(BASE_URL + tracks[index].file, peaks);
-
-          } catch (err) {
-            retryLoad();
-          }
-        });
-      }
-
-      function updateActiveTrack() {
-        trackList.querySelectorAll('li').forEach((el, i) => {
-          el.classList.toggle('active', i === currentTrackIndex);
-        });
-      }
-
-      function updatePlayPauseButton() {
-        playPauseButton.innerHTML = createPlayPauseSVG(isPlaying);
-      }
-
-      playPauseButton.addEventListener('click', () => {
-        if (!globalWavesurfer) return;
-
-        if (isPlaying) {
-          globalWavesurfer.pause();
-          isPlaying = false;
-        } else {
-          globalWavesurfer.play();
-          isPlaying = true;
-        }
-        updatePlayPauseButton();
-      });
-
-      tracks.forEach((track, index) => {
-        const listItem = document.createElement('li');
-        listItem.className = 'track-item flex-nowrap overflow-hidden';
-
-        const commentBlock = document.createElement('div');
-commentBlock.className = 'comment-block';
-
-(async () => {
-  const trackId = `${name}/${track.file}`;
-
-  const { data } = await supabase
-    .from("comments")
-    .select("*")
-    .eq("track", trackId);
-
-  const existing = data || [];
-
-  for (let i = 0; i < 4; i++) {
-    const input = document.createElement('input');
-    input.className = 'comment-line';
-
-    const found = existing.find(c => c.line === i);
-    input.value = found ? found.comment : '';
-    input.placeholder = `comment ${i + 1}`;
-
-    input.addEventListener('change', async () => {
-      await supabase
+    (async () => {
+      const { data } = await supabase
         .from("comments")
-        .upsert(
-          {
-            track: trackId,
-            line: i,
-            comment: input.value
-          },
-          { onConflict: "track,line" }
-        );
+        .select("*")
+        .eq("track", trackId);
+
+      const existing = data || [];
+
+      for (let i = 0; i < 4; i++) {
+
+        const input = document.createElement('input');
+        input.className = 'comment-line';
+
+        const found = existing.find(c => c.line === i);
+        input.value = found ? found.comment : '';
+        input.placeholder = `comment ${i + 1}`;
+
+        input.addEventListener('change', async () => {
+          await supabase
+            .from("comments")
+            .upsert(
+              {
+                track: trackId,
+                line: i,
+                comment: input.value
+              },
+              { onConflict: "track,line" }
+            );
+        });
+
+        commentBlock.appendChild(input);
+      }
+    })();
+
+    row.addEventListener('click', () => {
+      loadTrack(track.file);
     });
 
-    commentBlock.appendChild(input);
+    trackList.appendChild(row);
+    trackList.appendChild(commentBlock);
+
+    const audio = new Audio(BASE_URL + track.file);
+    audio.addEventListener('loadedmetadata', () => {
+      duration.textContent = Math.floor(audio.duration / 60) + ':' + String(Math.floor(audio.duration % 60)).padStart(2,'0');
+    });
+
+  });
+
+  container.appendChild(trackList);
+  return container;
+}
+
+async function loadTrack(file) {
+  if (globalWavesurfer) {
+    globalWavesurfer.destroy();
   }
-})();
 
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = track.title;
-        nameSpan.className = 'truncate w-full pr-2';
-        listItem.appendChild(nameSpan);
+  globalWavesurfer = WaveSurfer.create({
+    container: document.createElement('div'),
+    waveColor: 'white',
+    progressColor: 'orange',
+    height: 130
+  });
 
-        const durationSpan = document.createElement('span');
-        durationSpan.className = 'duration';
-        durationSpan.textContent = '--:--';
-        listItem.appendChild(durationSpan);
+  globalWavesurfer.load(BASE_URL + file);
+}
 
-        const audio = new Audio(BASE_URL + track.file);
-        audio.addEventListener('loadedmetadata', () => {
-          durationSpan.textContent = formatTime(audio.duration);
-        });
+async function init() {
+  const files = await loadFiles();
+  const selector = document.getElementById('playlist-selector');
+  const active = document.getElementById('active-playlist');
 
-        listItem.addEventListener('click', () => {
-          if (currentTrackIndex === index && isPlaying) {
-            globalWavesurfer.pause();
-            isPlaying = false;
-            updatePlayPauseButton();
-          } else {
-            loadTrack(index);
-          }
-          updatePlayPauseButton();
-          updateActiveTrack();
-        });
+  files.forEach(p => {
+    const btn = document.createElement('div');
+    btn.className = 'track-item';
+    btn.textContent = p.playlist;
 
-        trackList.appendChild(listItem);
-trackList.appendChild(commentBlock);
-      });
+    btn.onclick = () => {
+      active.innerHTML = '';
+      active.appendChild(createPlaylist(p.playlist, p.tracks));
+    };
 
-      return container;
-    }
+    selector.appendChild(btn);
+  });
+}
 
-    async function init() {
-      const files = await loadFiles();
-      const selector = document.getElementById('playlist-selector');
-      const activeContainer = document.getElementById('active-playlist');
-      const otherContainer = document.getElementById('other-playlists');
-      const playlistsHeader = document.getElementById('playlists-header');
-      const gdriveHeader = document.getElementById('gdrive-header');
-      const gdriveLinks = document.getElementById('gdrive-links');
-      const soundcloudHeader = document.getElementById('soundcloud-header'); /* added */
-      const soundcloudLinks = document.getElementById('soundcloud-links');   /* added */
+init();
+</script>
 
-      files.forEach((playlist) => {
-        const button = document.createElement('div');
-        button.className = 'track-item active flex-nowrap overflow-hidden';
-        button.style.cursor = 'pointer';
-
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = playlist.playlist;
-        nameSpan.className = 'truncate w-full';
-        button.appendChild(nameSpan);
-
-        button.addEventListener('click', () => {
-          // Hide headers
-          playlistsHeader.style.display = 'none';
-          gdriveHeader.style.display = 'none';
-          gdriveLinks.style.display = 'none';
-          soundcloudHeader.style.display = 'none';  /* added */
-          soundcloudLinks.style.display = 'none';   /* added */
-          selector.innerHTML = '';
-          activeContainer.innerHTML = '';
-          otherContainer.innerHTML = '';
-
-          const active = createPlaylist(playlist.playlist, playlist.tracks);
-          activeContainer.appendChild(active);
-
-          const homeLink = document.createElement('div');
-          homeLink.className = 'track-item active inline-block px-4 py-2 rounded';
-          homeLink.style.cursor = 'pointer';
-          const homeText = document.createElement('span');
-          homeText.textContent = 'HOME';
-          homeText.className = 'truncate px-4 py-2';
-          homeLink.appendChild(homeText);
-
-          homeLink.addEventListener('click', () => location.reload());
-          otherContainer.appendChild(homeLink);
-        });
-
-        selector.appendChild(button);
-      });
-    }
-
-    init();
-  </script>
 </body>
 </html>
