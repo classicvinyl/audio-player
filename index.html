@@ -6,16 +6,16 @@
   <title>uous private</title>
   <script src="https://unpkg.com/wavesurfer.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
 
 body {
   margin: 0;
-  background-color: white; /* matches the image background */
+  background-color: white;
   overflow-x: hidden;
   position: relative;
 }
 
-/* Background image layer */
 body::before {
   content: "";
   position: fixed;
@@ -30,14 +30,12 @@ body::before {
   pointer-events: none;
 }
 
-/* Mobile override */
 @media (max-width: 768px) {
   body::before {
     background-size: cover;
   }
 }
 
-/* Grey overlay layer */
 body::after {
   content: "";
   position: fixed;
@@ -45,7 +43,7 @@ body::after {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0,0,0,0.3); /* same grey everywhere */
+  background-color: rgba(0,0,0,0.3);
   z-index: -1;
   pointer-events: none;
 }
@@ -126,7 +124,6 @@ body::after {
       display: block;
     }
 
-    /* MOBILE RESPONSIVENESS ADJUSTMENTS */
     .playlist-container .flex.flex-wrap {
       flex-wrap: nowrap !important;
       align-items: center;
@@ -158,17 +155,106 @@ body::after {
         height: 44px;
       }
     }
+
+    /* ── COMMENTS PANEL ── */
+    .comments-panel {
+      background-color: #111;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 0.75rem;
+      border: 1px solid #333;
+    }
+    .comments-panel h3 {
+      color: grey;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin: 0 0 0.75rem 0;
+      font-weight: 600;
+    }
+    .comment-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      margin-bottom: 0.6rem;
+    }
+    .comment-label {
+      color: orange;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      min-width: 52px;
+      padding-top: 0.45rem;
+      flex-shrink: 0;
+    }
+    .comment-input {
+      flex: 1;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 0.3rem;
+      color: #ddd;
+      font-size: 0.8rem;
+      padding: 0.35rem 0.5rem;
+      resize: none;
+      min-height: 34px;
+      line-height: 1.4;
+      font-family: inherit;
+      transition: border-color 0.2s;
+      overflow: hidden;
+    }
+    .comment-input:focus {
+      outline: none;
+      border-color: orange;
+    }
+    .comment-input::placeholder {
+      color: #555;
+    }
+    .comment-save-btn {
+      background: orange;
+      border: none;
+      border-radius: 0.25rem;
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.55rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      margin-top: 0.3rem;
+      transition: background 0.2s, opacity 0.2s;
+      align-self: flex-start;
+    }
+    .comment-save-btn:hover {
+      background: #cc8400;
+    }
+    .comment-save-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .comment-status {
+      font-size: 0.65rem;
+      color: #666;
+      margin-top: 0.15rem;
+      min-height: 0.9rem;
+    }
+    .comment-status.ok  { color: #6c6; }
+    .comment-status.err { color: #f66; }
+
+    /* auto-resize textarea helper */
+    .comment-input {
+      field-sizing: content; /* modern browsers */
+    }
   </style>
 </head>
 <body>
   <div class="p-6">
-    <!-- PLAYLISTS HEADER -->
     <h2 id="playlists-header" class="playlist-title mb-2">PLAYLISTS</h2>
     <div id="playlist-selector" class="mb-8 space-y-2"></div>
     <div id="active-playlist"></div>
     <div id="other-playlists" class="mt-12 space-y-2"></div>
 
-    <!-- G-DRIVE SECTION -->
     <h2 id="gdrive-header" class="playlist-title mt-12 mb-2">GOOGLE DRIVE</h2>
     <div id="gdrive-links" class="space-y-2">
       <div class="track-item active flex-nowrap overflow-hidden" style="cursor:pointer;" onclick="window.open('https://drive.google.com/drive/folders/1bh24cYAMnM0BKLjZKJOcvF5nxqXxLoc3', '_blank')">
@@ -176,7 +262,6 @@ body::after {
       </div>
     </div>
 <br><br>
-      <!-- SOUNDCLOUD SECTION -->
     <h2 id="soundcloud-header" class="playlist-title mt-12 mb-2">SOUNDCLOUD</h2>
     <div id="soundcloud-links" class="space-y-2">
       <div class="track-item active flex-nowrap overflow-hidden" style="cursor:pointer;" onclick="window.open('https://soundcloud.com/decal-artifacts/sets/bbas-session-1/s-44DPp00XrD8?ref=clipboard&p=a&c=1&si=a00b89a1ec864ebcbe55e9d3151af801', '_blank')">
@@ -189,15 +274,122 @@ body::after {
         <span class="truncate w-full">MAY-2025</span>
       </div>
     </div>
-</div>
-    
-  <script>
-    const BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/';
+  </div>
 
+  <script>
+    // ── Supabase client ──────────────────────────────────────────────────────
+    const { createClient } = supabase;
+    const sb = createClient(
+      'https://mgeeyekokpymfwtkngai.supabase.co',
+      'sb_publishable_K2O4oYM7el8cSXnqZrB7EQ_WDXYWkn_'
+    );
+
+    const MEMBERS = [
+      { name: 'Alan',   line: 1 },
+      { name: 'Barry',  line: 2 },
+      { name: 'Bryan',  line: 3 },
+      { name: 'Stephen',line: 4 },
+    ];
+
+    // ── Comments panel ───────────────────────────────────────────────────────
+    function createCommentsPanel(trackKey) {
+      const panel = document.createElement('div');
+      panel.className = 'comments-panel';
+
+      const heading = document.createElement('h3');
+      heading.textContent = 'notes';
+      panel.appendChild(heading);
+
+      // For each member, create a row with label + textarea + save btn + status
+      MEMBERS.forEach(member => {
+        const row = document.createElement('div');
+        row.className = 'comment-row';
+
+        const label = document.createElement('div');
+        label.className = 'comment-label';
+        label.textContent = member.name;
+        row.appendChild(label);
+
+        const inner = document.createElement('div');
+        inner.style.cssText = 'flex:1; display:flex; flex-direction:column; gap:0.2rem;';
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'comment-input';
+        textarea.rows = 1;
+        textarea.placeholder = '—';
+        textarea.dataset.original = '';
+        inner.appendChild(textarea);
+
+        const status = document.createElement('div');
+        status.className = 'comment-status';
+        inner.appendChild(status);
+
+        row.appendChild(inner);
+
+        const btn = document.createElement('button');
+        btn.className = 'comment-save-btn';
+        btn.textContent = 'save';
+        btn.disabled = true;
+        row.appendChild(btn);
+
+        panel.appendChild(row);
+
+        // Enable save only when content changes
+        textarea.addEventListener('input', () => {
+          btn.disabled = textarea.value.trim() === textarea.dataset.original.trim();
+          status.textContent = '';
+          status.className = 'comment-status';
+        });
+
+        // Save handler — upsert by track + line
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          status.textContent = 'saving…';
+          status.className = 'comment-status';
+
+          const { error } = await sb
+            .from('comments')
+            .upsert(
+              { track: trackKey, line: member.line, comment: textarea.value.trim() },
+              { onConflict: 'track,line' }
+            );
+
+          if (error) {
+            status.textContent = 'error saving';
+            status.className = 'comment-status err';
+            btn.disabled = false;
+          } else {
+            textarea.dataset.original = textarea.value.trim();
+            status.textContent = 'saved ✓';
+            status.className = 'comment-status ok';
+          }
+        });
+
+        // Load existing comment for this track + member
+        (async () => {
+          const { data, error } = await sb
+            .from('comments')
+            .select('comment')
+            .eq('track', trackKey)
+            .eq('line', member.line)
+            .maybeSingle();
+
+          if (!error && data) {
+            textarea.value = data.comment || '';
+            textarea.dataset.original = textarea.value;
+          }
+        })();
+      });
+
+      return panel;
+    }
+
+    // ── Audio player ─────────────────────────────────────────────────────────
+    const BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/';
     let globalWavesurfer = null;
 
     async function loadFiles() {
-      const res = await fetch(BASE_URL + 'files.json', {cache: 'no-cache'});
+      const res = await fetch(BASE_URL + 'files.json', { cache: 'no-cache' });
       return res.json();
     }
 
@@ -215,11 +407,7 @@ body::after {
 
     function createPlaylist(name, tracks) {
       if (globalWavesurfer) {
-        try {
-          globalWavesurfer.stop();
-          globalWavesurfer.unAll();
-          globalWavesurfer.destroy();
-        } catch {}
+        try { globalWavesurfer.stop(); globalWavesurfer.unAll(); globalWavesurfer.destroy(); } catch {}
         globalWavesurfer = null;
       }
 
@@ -283,20 +471,18 @@ body::after {
 
       let loadingPromise = Promise.resolve();
 
+      // Track which comments panel is open
+      let openCommentsPanel = null;
+      let openCommentsIndex = -1;
+
       function clearWavesurfer() {
         if (globalWavesurfer) {
-          try {
-            globalWavesurfer.stop();
-            globalWavesurfer.unAll();
-            globalWavesurfer.destroy();
-          } catch {}
+          try { globalWavesurfer.stop(); globalWavesurfer.unAll(); globalWavesurfer.destroy(); } catch {}
           globalWavesurfer = null;
         }
       }
 
-      function delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-      }
+      function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
       function setErrorMessage(text) {
         errorMessage.textContent = text;
@@ -307,15 +493,9 @@ body::after {
         if (index < 0 || index >= tracks.length) return;
 
         loadingPromise = loadingPromise.then(async () => {
-          if (currentLoadTimeout) {
-            clearTimeout(currentLoadTimeout);
-            currentLoadTimeout = null;
-          }
+          if (currentLoadTimeout) { clearTimeout(currentLoadTimeout); currentLoadTimeout = null; }
 
-          if (globalWavesurfer) {
-            clearWavesurfer();
-            await delay(150);
-          }
+          if (globalWavesurfer) { clearWavesurfer(); await delay(150); }
 
           currentTrackIndex = index;
           currentAttempt = 1;
@@ -343,9 +523,7 @@ body::after {
           }
 
           currentLoadTimeout = setTimeout(() => {
-            if (!didLoad) {
-              retryLoad();
-            }
+            if (!didLoad) retryLoad();
           }, LOAD_TIMEOUT);
 
           const waveformJSONUrl = BASE_URL + tracks[index].file.replace(/\.mp3$/, '.json');
@@ -357,9 +535,7 @@ body::after {
             const flatData = Array.isArray(rawData) ? rawData.flat(Infinity) : [];
             const peaks = flatData.map(v => v / 255);
 
-            if (!peaks || peaks.length === 0) {
-              throw new Error('Peaks array empty or invalid');
-            }
+            if (!peaks || peaks.length === 0) throw new Error('Peaks array empty or invalid');
 
             globalWavesurfer.once('ready', () => {
               didLoad = true;
@@ -374,10 +550,7 @@ body::after {
               }, 200);
             });
 
-            globalWavesurfer.once('error', () => {
-              clearTimeout(currentLoadTimeout);
-              retryLoad();
-            });
+            globalWavesurfer.once('error', () => { clearTimeout(currentLoadTimeout); retryLoad(); });
 
             globalWavesurfer.on('finish', () => {
               let nextIndex = currentTrackIndex + 1;
@@ -391,7 +564,6 @@ body::after {
             });
 
             globalWavesurfer.load(BASE_URL + tracks[index].file, peaks);
-
           } catch (err) {
             retryLoad();
           }
@@ -410,7 +582,6 @@ body::after {
 
       playPauseButton.addEventListener('click', () => {
         if (!globalWavesurfer) return;
-
         if (isPlaying) {
           globalWavesurfer.pause();
           isPlaying = false;
@@ -424,23 +595,46 @@ body::after {
       tracks.forEach((track, index) => {
         const listItem = document.createElement('li');
         listItem.className = 'track-item flex-nowrap overflow-hidden';
+        listItem.style.flexDirection = 'column';
+        listItem.style.alignItems = 'stretch';
+        listItem.style.cursor = 'default';
+
+        // Top row: track name + duration + comment toggle
+        const topRow = document.createElement('div');
+        topRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; cursor:pointer; padding: 0;';
 
         const nameSpan = document.createElement('span');
         nameSpan.textContent = track.title;
-        nameSpan.className = 'truncate w-full pr-2';
-        listItem.appendChild(nameSpan);
+        nameSpan.className = 'truncate pr-2';
+        nameSpan.style.flex = '1';
+        topRow.appendChild(nameSpan);
 
         const durationSpan = document.createElement('span');
         durationSpan.className = 'duration';
         durationSpan.textContent = '--:--';
-        listItem.appendChild(durationSpan);
+        topRow.appendChild(durationSpan);
 
-        const audio = new Audio(BASE_URL + track.file);
-        audio.addEventListener('loadedmetadata', () => {
-          durationSpan.textContent = formatTime(audio.duration);
-        });
+        // Comment toggle button
+        const commentToggle = document.createElement('button');
+        commentToggle.title = 'Notes';
+        commentToggle.style.cssText = `
+          background: none; border: none; cursor: pointer;
+          color: #555; margin-left: 0.5rem; padding: 0;
+          font-size: 0.85rem; line-height: 1; flex-shrink: 0;
+          transition: color 0.2s;
+        `;
+        commentToggle.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>`;
+        topRow.appendChild(commentToggle);
 
-        listItem.addEventListener('click', () => {
+        listItem.appendChild(topRow);
+
+        // Comment panel placeholder
+        let commentsEl = null;
+        let panelOpen = false;
+
+        // Play on track name/duration click
+        topRow.addEventListener('click', (e) => {
+          if (e.target === commentToggle || commentToggle.contains(e.target)) return;
           if (currentTrackIndex === index && isPlaying) {
             globalWavesurfer.pause();
             isPlaying = false;
@@ -450,6 +644,28 @@ body::after {
           }
           updatePlayPauseButton();
           updateActiveTrack();
+        });
+
+        // Toggle comments panel
+        commentToggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          panelOpen = !panelOpen;
+          commentToggle.style.color = panelOpen ? 'orange' : '#555';
+
+          if (panelOpen) {
+            // Use track filename as the unique key (strip path/ext)
+            const trackKey = track.file.replace(/^.*\//, '').replace(/\.[^.]+$/, '');
+            commentsEl = createCommentsPanel(trackKey);
+            listItem.appendChild(commentsEl);
+          } else {
+            if (commentsEl) { commentsEl.remove(); commentsEl = null; }
+          }
+        });
+
+        // Duration
+        const audio = new Audio(BASE_URL + track.file);
+        audio.addEventListener('loadedmetadata', () => {
+          durationSpan.textContent = formatTime(audio.duration);
         });
 
         trackList.appendChild(listItem);
@@ -466,8 +682,8 @@ body::after {
       const playlistsHeader = document.getElementById('playlists-header');
       const gdriveHeader = document.getElementById('gdrive-header');
       const gdriveLinks = document.getElementById('gdrive-links');
-      const soundcloudHeader = document.getElementById('soundcloud-header'); /* added */
-      const soundcloudLinks = document.getElementById('soundcloud-links');   /* added */
+      const soundcloudHeader = document.getElementById('soundcloud-header');
+      const soundcloudLinks = document.getElementById('soundcloud-links');
 
       files.forEach((playlist) => {
         const button = document.createElement('div');
@@ -480,12 +696,11 @@ body::after {
         button.appendChild(nameSpan);
 
         button.addEventListener('click', () => {
-          // Hide headers
           playlistsHeader.style.display = 'none';
           gdriveHeader.style.display = 'none';
           gdriveLinks.style.display = 'none';
-          soundcloudHeader.style.display = 'none';  /* added */
-          soundcloudLinks.style.display = 'none';   /* added */
+          soundcloudHeader.style.display = 'none';
+          soundcloudLinks.style.display = 'none';
           selector.innerHTML = '';
           activeContainer.innerHTML = '';
           otherContainer.innerHTML = '';
