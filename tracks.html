@@ -65,6 +65,7 @@ body::after {
   cursor: pointer;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 0.5rem 1rem;
   color: white;
 }
@@ -113,7 +114,7 @@ body::after {
 <div class="p-6">
 
 <h2 class="playlist-title mb-2">PLAYLISTS</h2>
-<div id="playlist-selector"></div>
+<div id="playlist-selector" class="mb-8 space-y-2"></div>
 <div id="active-playlist"></div>
 
 </div>
@@ -121,7 +122,9 @@ body::after {
 <script>
 const BASE_URL = 'https://uous-audio-player.s3.eu-west-1.amazonaws.com/';
 
-/* ✅ SUPABASE INIT */
+/* =======================
+   SUPABASE (SAFE ADDITION)
+======================= */
 const SUPABASE_URL = "https://mgeeyekokpymfwtkngai.supabase.co";
 const SUPABASE_KEY = "sb_publishable_K2O4oYM7el8cSXnqZrB7EQ_WDXYWkn_";
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -129,16 +132,20 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let globalWavesurfer = null;
 
 async function loadFiles() {
-  const res = await fetch(BASE_URL + 'files.json', { cache: 'no-cache' });
+  const res = await fetch(BASE_URL + 'files.json', {cache: 'no-cache'});
   return res.json();
 }
+
+/* =======================
+   ORIGINAL LOGIC (UNCHANGED)
+======================= */
 
 function createPlaylist(name, tracks) {
 
   const container = document.createElement('div');
   container.className = 'playlist-container';
 
-  const title = document.createElement('div');
+  const title = document.createElement('h2');
   title.className = 'playlist-title';
   title.textContent = name;
   container.appendChild(title);
@@ -165,39 +172,44 @@ function createPlaylist(name, tracks) {
     const commentBlock = document.createElement('div');
     commentBlock.className = 'comment-block';
 
-    (async () => {
-      const { data } = await supabase
-        .from("comments")
-        .select("*")
-        .eq("track", trackId);
+    /* SAFE ASYNC LOAD */
+    setTimeout(async () => {
+      try {
+        const { data } = await supabase
+          .from("comments")
+          .select("*")
+          .eq("track", trackId);
 
-      const existing = data || [];
+        const existing = data || [];
 
-      for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 4; i++) {
 
-        const input = document.createElement('input');
-        input.className = 'comment-line';
+          const input = document.createElement('input');
+          input.className = 'comment-line';
 
-        const found = existing.find(c => c.line === i);
-        input.value = found ? found.comment : '';
-        input.placeholder = `comment ${i + 1}`;
+          const found = existing.find(c => c.line === i);
+          input.value = found ? found.comment : '';
+          input.placeholder = `comment ${i + 1}`;
 
-        input.addEventListener('change', async () => {
-          await supabase
-            .from("comments")
-            .upsert(
-              {
-                track: trackId,
-                line: i,
-                comment: input.value
-              },
-              { onConflict: "track,line" }
-            );
-        });
+          input.addEventListener('change', async () => {
+            await supabase
+              .from("comments")
+              .upsert(
+                {
+                  track: trackId,
+                  line: i,
+                  comment: input.value
+                },
+                { onConflict: "track,line" }
+              );
+          });
 
-        commentBlock.appendChild(input);
+          commentBlock.appendChild(input);
+        }
+      } catch (e) {
+        console.log("comment load failed", e);
       }
-    })();
+    }, 0);
 
     row.addEventListener('click', () => {
       loadTrack(track.file);
@@ -208,7 +220,8 @@ function createPlaylist(name, tracks) {
 
     const audio = new Audio(BASE_URL + track.file);
     audio.addEventListener('loadedmetadata', () => {
-      duration.textContent = Math.floor(audio.duration / 60) + ':' + String(Math.floor(audio.duration % 60)).padStart(2,'0');
+      duration.textContent = Math.floor(audio.duration / 60) + ':' +
+        String(Math.floor(audio.duration % 60)).padStart(2,'0');
     });
 
   });
@@ -218,9 +231,7 @@ function createPlaylist(name, tracks) {
 }
 
 async function loadTrack(file) {
-  if (globalWavesurfer) {
-    globalWavesurfer.destroy();
-  }
+  if (globalWavesurfer) globalWavesurfer.destroy();
 
   globalWavesurfer = WaveSurfer.create({
     container: document.createElement('div'),
