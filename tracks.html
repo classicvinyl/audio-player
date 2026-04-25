@@ -8,7 +8,7 @@
 <style>
 
 /* =========================
-   EXACT INDEX.HTML BACKGROUND SYSTEM
+   BACKGROUND (UNCHANGED INDEX SYSTEM)
 ========================= */
 
 body {
@@ -18,7 +18,6 @@ body {
   position: relative;
 }
 
-/* background image layer */
 body::before {
   content: "";
   position: fixed;
@@ -30,12 +29,9 @@ body::before {
 }
 
 @media (max-width: 768px) {
-  body::before {
-    background-size: cover;
-  }
+  body::before { background-size: cover; }
 }
 
-/* overlay */
 body::after {
   content: "";
   position: fixed;
@@ -46,16 +42,36 @@ body::after {
 }
 
 /* =========================
-   GLOBAL LAYOUT (MATCH FEEL)
+   TYPOGRAPHY SYSTEM (FIXED MATCH)
+========================= */
+
+/* playlist title MUST behave like index header */
+.playlist-title {
+  color: grey;
+  font-weight: bold;
+  font-size: 2rem;
+  margin: 0 0 1rem 0;
+  letter-spacing: 0;
+}
+
+/* track name MUST behave like index track label */
+.track-name {
+  font-size: 13px;
+  color: white;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================
+   CONTAINER SYSTEM (MATCH index depth)
 ========================= */
 
 .wrap {
   padding: 20px;
 }
-
-/* =========================
-   PLAYLIST CONTAINER (EXACT MATCH)
-========================= */
 
 .playlist {
   background-color: #000;
@@ -66,18 +82,7 @@ body::after {
 }
 
 /* =========================
-   TITLE (IDENTICAL TYPOGRAPHY)
-========================= */
-
-.playlist-title {
-  color: grey;
-  font-weight: bold;
-  font-size: 2rem;
-  margin: 0 0 1rem 0;
-}
-
-/* =========================
-   TRACK ROW (MATCH index UI)
+   TRACK ROW SYSTEM (IMPORTANT FIX)
 ========================= */
 
 .track {
@@ -94,15 +99,8 @@ body::after {
   background-color: #3c2a36;
 }
 
-/* track name */
-.track-name {
-  font-size: 13px;
-  margin-bottom: 8px;
-  color: #fff;
-}
-
 /* =========================
-   COMMENT INPUTS (MATCH DARK UI)
+   COMMENT INPUTS (UNCHANGED FUNCTIONAL STYLE)
 ========================= */
 
 .comment {
@@ -121,8 +119,7 @@ body::after {
   border-bottom: 1px solid grey;
 }
 
-</style>
-</head>
+</style></head>
 
 <body>
 <div class="wrap" id="app"></div>
