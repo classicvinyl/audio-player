@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>playlist notes</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
   body {
@@ -24,7 +24,7 @@
   .playlist-title {
     font-size: 18px;
     margin: 20px 0 10px;
-    color: #ffffff;
+    color: #fff;
   }
 
   .track {
@@ -33,7 +33,7 @@
   }
 
   .track-name {
-    font-size: 14px;
+    font-size: 13px;
     margin-bottom: 8px;
     color: #aaa;
   }
@@ -46,12 +46,12 @@
     padding: 6px;
     margin: 4px 0;
     font-size: 12px;
+    outline: none;
   }
 </style>
-
 </head>
-<body>
 
+<body>
 <div class="wrap" id="app"></div>
 
 <script type="module">
@@ -69,35 +69,44 @@ async function loadFiles() {
   return res.json();
 }
 
-async function loadComments(trackId) {
+function makeTrackId(playlist, file) {
+  return `${playlist}/${file}`;
+}
+
+async function loadComments(track) {
   const { data } = await supabase
-    .from("track_comments")
+    .from("comments")
     .select("*")
-    .eq("track_id", trackId);
+    .eq("track", track);
 
   return data || [];
 }
 
-async function saveComment(trackId, i, value) {
-  await supabase.from("track_comments").upsert({
-    track_id: trackId,
-    line_index: i,
-    content: value
-  });
+async function saveComment(track, line, value) {
+  const { error } = await supabase
+    .from("comments")
+    .upsert(
+      {
+        track,
+        line,
+        comment: value
+      },
+      {
+        onConflict: "track,line"
+      }
+    );
+
+  if (error) console.error("SAVE ERROR:", error);
 }
 
-function makeTrackId(playlist, file) {
-  return playlist + "/" + file;
-}
-
-function renderCommentBox(trackId, existing, i) {
+function createInput(track, line, existing) {
   const input = document.createElement("input");
   input.className = "comment";
-  input.value = existing?.content || "";
-  input.placeholder = "comment " + (i + 1);
+  input.value = existing?.comment || "";
+  input.placeholder = `comment ${line + 1}`;
 
-  input.addEventListener("change", async () => {
-    await saveComment(trackId, i, input.value);
+  input.addEventListener("change", () => {
+    saveComment(track, line, input.value);
   });
 
   return input;
@@ -108,39 +117,38 @@ async function render() {
   const data = await loadFiles();
 
   for (const playlist of data) {
-
-    const p = document.createElement("div");
-    p.className = "playlist";
+    const playlistDiv = document.createElement("div");
+    playlistDiv.className = "playlist";
 
     const title = document.createElement("div");
     title.className = "playlist-title";
     title.textContent = playlist.playlist;
 
-    p.appendChild(title);
+    playlistDiv.appendChild(title);
 
     for (const track of playlist.tracks) {
 
       const trackId = makeTrackId(playlist.playlist, track.file);
       const comments = await loadComments(trackId);
 
-      const t = document.createElement("div");
-      t.className = "track";
+      const trackDiv = document.createElement("div");
+      trackDiv.className = "track";
 
       const name = document.createElement("div");
       name.className = "track-name";
       name.textContent = track.title;
 
-      t.appendChild(name);
+      trackDiv.appendChild(name);
 
       for (let i = 0; i < 4; i++) {
-        const c = comments.find(x => x.line_index === i);
-        t.appendChild(renderCommentBox(trackId, c, i));
+        const existing = comments.find(c => c.line === i);
+        trackDiv.appendChild(createInput(trackId, i, existing));
       }
 
-      p.appendChild(t);
+      playlistDiv.appendChild(trackDiv);
     }
 
-    app.appendChild(p);
+    app.appendChild(playlistDiv);
   }
 }
 
