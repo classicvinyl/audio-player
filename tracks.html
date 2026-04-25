@@ -83,7 +83,7 @@ async function loadComments(track) {
 }
 
 async function saveComment(track, line, value) {
-  const { error } = await supabase
+  const result = await supabase
     .from("comments")
     .upsert(
       {
@@ -96,7 +96,7 @@ async function saveComment(track, line, value) {
       }
     );
 
-  if (error) console.error("SAVE ERROR:", error);
+  console.log("SUPABASE SAVE RESULT:", result);
 }
 
 function createInput(track, line, existing) {
